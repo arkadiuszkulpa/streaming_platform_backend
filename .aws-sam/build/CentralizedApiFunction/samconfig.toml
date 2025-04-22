@@ -1,0 +1,10 @@
+version = 0.1
+[default.deploy.parameters]
+stack_name = "streaming-wrapper-backend"
+resolve_s3 = true
+s3_prefix = "streaming-wrapper-backend"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "RapidApiKeyParameter=\"ssm:/RapidApiKeyParameter\""
+image_repositories = []
