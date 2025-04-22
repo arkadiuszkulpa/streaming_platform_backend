@@ -1,0 +1,9 @@
+{
+  "rawPath": "/api",
+  "requestContext": {
+      "http": {
+          "method": "POST"
+      }
+  },
+  "body": "{\"action\": \"get_movie_info\", \"movie_id\": \"399566\"}"
+}
