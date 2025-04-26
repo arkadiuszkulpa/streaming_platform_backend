@@ -1,0 +1,42 @@
+# Ignore Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore environment files
+.env
+env.json
+
+# Ignore SAM build artifacts
+.aws-sam/
+
+# Ignore zip files
+*.zip
+
+# Ignore test artifacts
+local_testing/__pycache__/
+local_testing/*.pyc
+
+# Ignore IDE-specific files
+*.code-workspace
+.vscode/
+
+# Ignore dependency files
+*.egg-info/
+*.dist-info/
+certifi/
+charset_normalizer/
+idna/
+urllib3/
+
+# Ignore logs
+*.log
+
+# Ignore temporary files
+*.tmp
+*.swp
+*.bak
+*.orig
+.DS_Store
+Thumbs.db
