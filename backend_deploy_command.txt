@@ -1,0 +1,5 @@
+sam deploy \
+  --template-file template.yaml \
+  --stack-name streaming-platform-backend-dev \
+  --parameter-overrides Environment=dev GitHubOwner=arkadiuszkulpa FrontendRepo=streaming_platform_frontend BackendRepo=streaming_platform_backend \
+  --capabilities CAPABILITY_IAM

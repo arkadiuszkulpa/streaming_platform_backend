@@ -1,24 +1,97 @@
-# yaml-language-server: disable
-Transform: AWS::Serverless-2016-10-31
-
-Resources:
-  CentralizedApiFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: lambda_handler.lambda_handler
-      Runtime: python3.12
-      CodeUri: .
-      MemorySize: 128
-      Timeout: 10
-      Environment:
-        Variables:
-          RAPIDAPI_KEY: !Ref RapidApiKeyParameter
-
-Policies:
-  - SSMParameterReadPolicy:
-      ParameterName: "/RapidApiKeyParameter"
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS CloudFormation template for the streaming platform infrastructure.
 
 Parameters:
+  Environment:
+    Type: String
+    Description: The environment for this stack (e.g., dev, prod)
+    AllowedValues:
+      - dev
+      - prod
+    Default: dev
+
+  GitHubOwner:
+    Type: String
+    Description: The GitHub username or organization that owns the repository
+
+  FrontendRepo:
+    Type: String
+    Description: The name of the GitHub repository for the frontend
+
+  BackendRepo:
+    Type: String
+    Description: The name of the GitHub repository for the backend
+
   RapidApiKeyParameter:
     Type: String
     Description: RapidAPI Key stored in AWS SSM Parameter Store
+
+Resources:
+####################################
+  # Lambda Function
+####################################
+  CentralizedApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "centralized_api-${AWS::StackName}-${Environment}"
+      Runtime: python3.12
+      Handler: lambda_handler.lambda_handler
+      CodeUri: .
+      MemorySize: 128
+      Timeout: 10
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          RAPIDAPI_KEY: !Ref RapidApiKeyParameter
+      Tags:
+        Environment: !Ref Environment
+        Project: !Ref AWS::StackName
+
+  ####################################
+  # API Gateway
+  ####################################
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      DefinitionBody:
+        openapi: 3.0.1
+        info:
+          title: Centralized API
+          version: 1.0
+        paths:
+          /centralized:
+            get:
+              x-amazon-apigateway-integration:
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CentralizedApiFunction.Arn}/invocations"
+                httpMethod: POST
+                type: aws_proxy
+  
+  ApiGatewayLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref CentralizedApiFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+####################################
+  # IAM Roles
+####################################
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "lambda_exec_role-${AWS::StackName}-${Environment}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Tags:
+        Environment: !Ref Environment
+        Project: !Ref AWS::StackName
+
+Conditions:
+  IsProd: !Equals [!Ref Environment, prod]
