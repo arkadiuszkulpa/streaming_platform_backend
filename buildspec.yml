@@ -1,0 +1,31 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.12 # Use the Python version matching your Lambda runtime
+    commands:
+      - echo Installing dependencies...
+      - pip install --upgrade pip
+      - pip install -r requirements.txt -t .
+
+  build:
+    commands:
+      - echo Building the SAM application...
+      - sam build
+
+  post_build:
+    commands:
+      - echo Running tests...
+      - pytest local_testing/ --junitxml=report.xml # Run tests and generate a report
+
+artifacts:
+  files:
+    - .aws-sam/** # Include all SAM build artifacts
+    - report.xml # Include test report for visibility in CodeBuild
+  discard-paths: no # Preserve the directory structure for deployment
+
+cache:
+  paths:
+    - .aws-sam/cache/** # Cache SAM build artifacts for faster builds
+    - .pip_cache/** # Cache Python dependencies
