@@ -9,7 +9,7 @@ def lambda_handler(event, context):
     try:
         path = event['rawPath']
         method = event['requestContext']['http']['method']
-
+        ##just to get new commit
         if path == "/api" and method == "POST":
             # Parse the request body
             body = json.loads(event.get('body', '{}'))
