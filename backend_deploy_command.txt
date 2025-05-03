@@ -1,5 +1,7 @@
-sam deploy \
-  --template-file template.yaml \
-  --stack-name streaming-platform-backend-dev \
-  --parameter-overrides Environment=dev GitHubOwner=arkadiuszkulpa FrontendRepo=streaming_platform_frontend BackendRepo=streaming_platform_backend \
-  --capabilities CAPABILITY_IAM
+sam deploy --template-file template.yaml --stack-name streaming-platform-backend-dev --parameter-overrides Environment=dev RapidApiKeyParameter=RapidApiKeyParameter --capabilities CAPABILITY_NAMED_IAM
+
+
+# Delete the stack if needed (e.g in rollback state)
+aws cloudformation delete-stack --stack-name streaming-platform-infra-dev
+
+# --debug for extra debug information
