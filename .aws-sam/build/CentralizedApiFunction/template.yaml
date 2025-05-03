@@ -1,20 +1,220 @@
-# yaml-language-server: disable
+AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-
-Resources:
-  CentralizedApiFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Handler: lambda_handler.lambda_handler
-      Runtime: python3.12
-      CodeUri: .
-      MemorySize: 128
-      Timeout: 10
-      Environment:
-        Variables:
-          RAPIDAPI_KEY: !Ref RapidApiKeyParameter
+Description: Backend stack for the movie recommendation platform
 
 Parameters:
+  Environment:
+    Type: String
+    Description: The environment for this stack (e.g., dev, prod)
+    AllowedValues:
+      - dev
+      - prod
+    Default: dev
+
   RapidApiKeyParameter:
     Type: String
     Description: RapidAPI Key stored in AWS SSM Parameter Store
+
+Globals:
+  Function:
+    Timeout: 10
+    Runtime: python3.12
+    MemorySize: 256
+    Tags:
+      Environment: !Ref Environment
+      Project: !Ref AWS::StackName
+
+Resources:
+
+  ####################################
+  # Lambda Function
+  ####################################
+  CentralizedApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "centralized_api-${AWS::StackName}"
+      Handler: lambda_handler.lambda_handler
+      CodeUri: .
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          RAPIDAPI_KEY: !Ref RapidApiKeyParameter
+          USER_POOL_ID: !ImportValue streaming-platform-infra-dev-UserPoolId
+          IDENTITY_POOL_ID: !ImportValue streaming-platform-infra-dev-IdentityPoolId
+      Events:
+        CentralizedApi:
+          Type: Api
+          Properties:
+            Path: /centralized
+            Method: GET
+            RestApiId: !Ref ApiGateway
+
+
+  ####################################
+  # API Gateway
+  ####################################
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      # Auth:
+      #   DefaultAuthorizer: CognitoAuthorizer
+      #   Authorizers:
+      #     CognitoAuthorizer:
+      #       UserPoolArn: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${!ImportValue streaming-platform-infra-dev-UserPoolId}"
+      #   AddDefaultAuthorizerToCorsPreflight: false
+
+  ####################################
+  # IAM Role
+  ####################################
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "lambda_exec_role-${AWS::StackName}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref AWS::StackName
+
+  ####################################
+  # DynamoDB Tables
+  ####################################
+  UserSettingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "user_settings-backend-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: setting_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: setting_key
+          KeyType: RANGE
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref AWS::StackName
+
+  WatchlistTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "watchlist-backend-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: movie_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: movie_id
+          KeyType: RANGE
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref AWS::StackName
+
+  RatingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "ratings-backend-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: movie_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: movie_id
+          KeyType: RANGE
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref AWS::StackName
+
+  RecommendationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "recommendations-backend-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: movie_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: movie_id
+          KeyType: RANGE
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref AWS::StackName
+
+  SearchCacheTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "search_cache-backend-${Environment}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: search_query
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: N
+      KeySchema:
+        - AttributeName: search_query
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: expiration_time
+        Enabled: true
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref AWS::StackName
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway Invoke URL
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/centralized"
+
+  UserSettingsTableName:
+    Value: !Ref UserSettingsTable
+  WatchlistTableName:
+    Value: !Ref WatchlistTable
+  RatingsTableName:
+    Value: !Ref RatingsTable
+  RecommendationsTableName:
+    Value: !Ref RecommendationsTable
+  SearchCacheTableName:
+    Value: !Ref SearchCacheTable

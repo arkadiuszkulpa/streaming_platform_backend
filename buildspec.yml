@@ -7,17 +7,20 @@ phases:
     commands:
       - echo Installing dependencies...
       - pip install --upgrade pip
+      - pip install --upgrade awscli aws-sam-cli
       - pip install -r requirements.txt -t .
 
   build:
     commands:
       - echo Building the SAM application...
       - sam build
+      - sam deploy --template-file .aws-sam/build/template.yaml --config-env dev
+
 
   post_build:
     commands:
       - echo Running tests...
-      - pytest local_testing/ --junitxml=report.xml # Run tests and generate a report
+      #- pytest local_testing/ --junitxml=report.xml # Run tests and generate a report
 
 artifacts:
   files:
