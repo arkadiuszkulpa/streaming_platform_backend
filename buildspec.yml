@@ -14,7 +14,7 @@ phases:
     commands:
       - echo Building the SAM application...
       - sam build
-      - sam deploy --template-file .aws-sam/build/template.yaml --config-env dev
+      - sam deploy --template-file .aws-sam/build/template.yaml --config-env dev --config-file samconfig.toml
 
 
   post_build:
