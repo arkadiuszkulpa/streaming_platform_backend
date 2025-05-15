@@ -23,6 +23,20 @@ Globals:
       Project:
         Ref: AWS::StackName
 Resources:
+  UserPoolIdParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /streaming-platform-backend/user-pool-id
+      Type: String
+      Value:
+        Fn::ImportValue: streaming-platform-infra-dev-UserPoolId
+  IdentityPoolIdParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /streaming-platform-backend/identity-pool-id
+      Type: String
+      Value:
+        Fn::ImportValue: streaming-platform-infra-dev-IdentityPoolId
   CentralizedApiFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -39,9 +53,9 @@ Resources:
           RAPIDAPI_KEY:
             Ref: RapidApiKeyParameter
           USER_POOL_ID:
-            Fn::ImportValue: streaming-platform-infra-dev-UserPoolId
+            Ref: UserPoolIdParameter
           IDENTITY_POOL_ID:
-            Fn::ImportValue: streaming-platform-infra-dev-IdentityPoolId
+            Ref: IdentityPoolIdParameter
       Events:
         CentralizedApi:
           Type: Api
