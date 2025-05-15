@@ -27,6 +27,23 @@ Globals:
 Resources:
 
   ####################################
+  # SSM Parameters
+  ####################################
+  UserPoolIdParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: "/streaming-platform-backend/user-pool-id"
+      Type: String
+      Value: !ImportValue streaming-platform-infra-dev-UserPoolId
+
+  IdentityPoolIdParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: "/streaming-platform-backend/identity-pool-id"
+      Type: String
+      Value: !ImportValue streaming-platform-infra-dev-IdentityPoolId
+
+  ####################################
   # Lambda Function
   ####################################
   CentralizedApiFunction:
@@ -39,8 +56,8 @@ Resources:
       Environment:
         Variables:
           RAPIDAPI_KEY: !Ref RapidApiKeyParameter
-          USER_POOL_ID: !ImportValue streaming-platform-infra-dev-UserPoolId
-          IDENTITY_POOL_ID: !ImportValue streaming-platform-infra-dev-IdentityPoolId
+          USER_POOL_ID: !Ref UserPoolIdParameter
+          IDENTITY_POOL_ID: !Ref IdentityPoolIdParameter
       Events:
         CentralizedApi:
           Type: Api
@@ -48,7 +65,6 @@ Resources:
             Path: /centralized
             Method: GET
             RestApiId: !Ref ApiGateway
-
 
   ####################################
   # API Gateway
