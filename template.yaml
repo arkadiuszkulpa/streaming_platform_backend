@@ -35,7 +35,6 @@ Resources:
       Name: "/streaming-platform-backend/user-pool-id"
       Type: String
       Value: !ImportValue streaming-platform-infra-dev-UserPoolId
-      Overwrite: true
 
   IdentityPoolIdParameter:
     Type: AWS::SSM::Parameter
@@ -43,7 +42,6 @@ Resources:
       Name: "/streaming-platform-backend/identity-pool-id"
       Type: String
       Value: !ImportValue streaming-platform-infra-dev-IdentityPoolId
-      Overwrite: true
 
   ####################################
   # Lambda Function
