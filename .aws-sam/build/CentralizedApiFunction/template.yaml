@@ -35,6 +35,15 @@ Resources:
       Name: "/streaming-platform-backend/user-pool-id"
       Type: String
       Value: !ImportValue streaming-platform-infra-dev-UserPoolId
+    Metadata:
+      AWS::CloudFormation::Init:
+        config:
+          commands:
+            retry:
+              command: |
+                for i in {1..5}; do
+                  aws ssm put-parameter --name "/streaming-platform-backend/user-pool-id" --type String --value "$(aws cloudformation describe-stacks --stack-name streaming-platform-infra-dev --query 'Stacks[0].Outputs[?OutputKey==`UserPoolId`].OutputValue' --output text)" && break || sleep 10;
+                done
 
   IdentityPoolIdParameter:
     Type: AWS::SSM::Parameter
@@ -42,6 +51,15 @@ Resources:
       Name: "/streaming-platform-backend/identity-pool-id"
       Type: String
       Value: !ImportValue streaming-platform-infra-dev-IdentityPoolId
+    Metadata:
+      AWS::CloudFormation::Init:
+        config:
+          commands:
+            retry:
+              command: |
+                for i in {1..5}; do
+                  aws ssm put-parameter --name "/streaming-platform-backend/identity-pool-id" --type String --value "$(aws cloudformation describe-stacks --stack-name streaming-platform-infra-dev --query 'Stacks[0].Outputs[?OutputKey==`IdentityPoolId`].OutputValue' --output text)" && break || sleep 10;
+                done
 
   ####################################
   # Lambda Function
@@ -98,6 +116,17 @@ Resources:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
         - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
         - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+      Policies:
+        - PolicyName: SSMParameterAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:PutParameter
+                  - ssm:GetParameter
+                  - ssm:DeleteParameter
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/streaming-platform-backend/*"
       Tags:
         - Key: Environment
           Value: !Ref Environment

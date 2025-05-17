@@ -30,6 +30,15 @@ Resources:
       Type: String
       Value:
         Fn::ImportValue: streaming-platform-infra-dev-UserPoolId
+    Metadata:
+      AWS::CloudFormation::Init:
+        config:
+          commands:
+            retry:
+              command: "for i in {1..5}; do\n  aws ssm put-parameter --name \"/streaming-platform-backend/user-pool-id\"\
+                \ --type String --value \"$(aws cloudformation describe-stacks --stack-name\
+                \ streaming-platform-infra-dev --query 'Stacks[0].Outputs[?OutputKey==`UserPoolId`].OutputValue'\
+                \ --output text)\" && break || sleep 10;\ndone\n"
   IdentityPoolIdParameter:
     Type: AWS::SSM::Parameter
     Properties:
@@ -37,6 +46,15 @@ Resources:
       Type: String
       Value:
         Fn::ImportValue: streaming-platform-infra-dev-IdentityPoolId
+    Metadata:
+      AWS::CloudFormation::Init:
+        config:
+          commands:
+            retry:
+              command: "for i in {1..5}; do\n  aws ssm put-parameter --name \"/streaming-platform-backend/identity-pool-id\"\
+                \ --type String --value \"$(aws cloudformation describe-stacks --stack-name\
+                \ streaming-platform-infra-dev --query 'Stacks[0].Outputs[?OutputKey==`IdentityPoolId`].OutputValue'\
+                \ --output text)\" && break || sleep 10;\ndone\n"
   CentralizedApiFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -87,6 +105,18 @@ Resources:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
       - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+      Policies:
+      - PolicyName: SSMParameterAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - ssm:PutParameter
+            - ssm:GetParameter
+            - ssm:DeleteParameter
+            Resource:
+              Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/streaming-platform-backend/*
       Tags:
       - Key: Environment
         Value:
