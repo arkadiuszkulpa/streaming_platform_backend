@@ -34,14 +34,14 @@ Resources:
     Properties:
       Name: "/streaming-platform-backend/user-pool-id"
       Type: String
-      Value: !Ref UserPoolId
+      Value: !Sub "${AWS::StackName}-user-pool-id"
 
   IdentityPoolIdParameter:
     Type: AWS::SSM::Parameter
     Properties:
       Name: "/streaming-platform-backend/identity-pool-id"
       Type: String
-      Value: !Ref IdentityPoolId
+      Value: !Sub "${AWS::StackName}-identity-pool-id"
 
   ####################################
   # Lambda Function
