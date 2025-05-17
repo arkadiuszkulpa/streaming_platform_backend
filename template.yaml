@@ -34,14 +34,14 @@ Resources:
     Properties:
       Name: "/streaming-platform-backend/user-pool-id"
       Type: String
-      Value: !ImportValue streaming-platform-infra-dev-UserPoolId
+      Value: !Ref UserPoolId
 
   IdentityPoolIdParameter:
     Type: AWS::SSM::Parameter
     Properties:
       Name: "/streaming-platform-backend/identity-pool-id"
       Type: String
-      Value: !ImportValue streaming-platform-infra-dev-IdentityPoolId
+      Value: !Ref IdentityPoolId
 
   ####################################
   # Lambda Function
@@ -73,12 +73,6 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       StageName: !Ref Environment
-      # Auth:
-      #   DefaultAuthorizer: CognitoAuthorizer
-      #   Authorizers:
-      #     CognitoAuthorizer:
-      #       UserPoolArn: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${!ImportValue streaming-platform-infra-dev-UserPoolId}"
-      #   AddDefaultAuthorizerToCorsPreflight: false
 
   ####################################
   # IAM Role
