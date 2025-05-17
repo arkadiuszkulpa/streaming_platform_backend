@@ -1,5 +1,6 @@
 sam deploy --template-file template.yaml --stack-name streaming-platform-backend-dev --parameter-overrides Environment=dev RapidApiKeyParameter=RapidApiKeyParameter --capabilities CAPABILITY_NAMED_IAM
 
+sam deploy --template-file template.yaml --stack-name streaming-platform-backend-dev --parameter-overrides Environment=dev RapidApiKeyParameter=RapidApiKeyParameter --capabilities CAPABILITY_NAMED_IAM --resolve-s3
 
 # Delete the stack if needed (e.g in rollback state)
 aws cloudformation delete-stack --stack-name streaming-platform-infra-dev
