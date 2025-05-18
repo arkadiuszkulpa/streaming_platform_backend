@@ -34,32 +34,14 @@ Resources:
     Properties:
       Name: "/streaming-platform-backend/user-pool-id"
       Type: String
-      Value: !ImportValue streaming-platform-infra-dev-UserPoolId
-    Metadata:
-      AWS::CloudFormation::Init:
-        config:
-          commands:
-            retry:
-              command: |
-                for i in {1..5}; do
-                  aws ssm put-parameter --name "/streaming-platform-backend/user-pool-id" --type String --value "$(aws cloudformation describe-stacks --stack-name streaming-platform-infra-dev --query 'Stacks[0].Outputs[?OutputKey==`UserPoolId`].OutputValue' --output text)" && break || sleep 10;
-                done
+      Value: !Sub "${AWS::StackName}-user-pool-id"
 
   IdentityPoolIdParameter:
     Type: AWS::SSM::Parameter
     Properties:
       Name: "/streaming-platform-backend/identity-pool-id"
       Type: String
-      Value: !ImportValue streaming-platform-infra-dev-IdentityPoolId
-    Metadata:
-      AWS::CloudFormation::Init:
-        config:
-          commands:
-            retry:
-              command: |
-                for i in {1..5}; do
-                  aws ssm put-parameter --name "/streaming-platform-backend/identity-pool-id" --type String --value "$(aws cloudformation describe-stacks --stack-name streaming-platform-infra-dev --query 'Stacks[0].Outputs[?OutputKey==`IdentityPoolId`].OutputValue' --output text)" && break || sleep 10;
-                done
+      Value: !Sub "${AWS::StackName}-identity-pool-id"
 
   ####################################
   # Lambda Function
@@ -91,12 +73,6 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       StageName: !Ref Environment
-      # Auth:
-      #   DefaultAuthorizer: CognitoAuthorizer
-      #   Authorizers:
-      #     CognitoAuthorizer:
-      #       UserPoolArn: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${!ImportValue streaming-platform-infra-dev-UserPoolId}"
-      #   AddDefaultAuthorizerToCorsPreflight: false
 
   ####################################
   # IAM Role

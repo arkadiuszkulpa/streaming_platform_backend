@@ -29,32 +29,14 @@ Resources:
       Name: /streaming-platform-backend/user-pool-id
       Type: String
       Value:
-        Fn::ImportValue: streaming-platform-infra-dev-UserPoolId
-    Metadata:
-      AWS::CloudFormation::Init:
-        config:
-          commands:
-            retry:
-              command: "for i in {1..5}; do\n  aws ssm put-parameter --name \"/streaming-platform-backend/user-pool-id\"\
-                \ --type String --value \"$(aws cloudformation describe-stacks --stack-name\
-                \ streaming-platform-infra-dev --query 'Stacks[0].Outputs[?OutputKey==`UserPoolId`].OutputValue'\
-                \ --output text)\" && break || sleep 10;\ndone\n"
+        Fn::Sub: ${AWS::StackName}-user-pool-id
   IdentityPoolIdParameter:
     Type: AWS::SSM::Parameter
     Properties:
       Name: /streaming-platform-backend/identity-pool-id
       Type: String
       Value:
-        Fn::ImportValue: streaming-platform-infra-dev-IdentityPoolId
-    Metadata:
-      AWS::CloudFormation::Init:
-        config:
-          commands:
-            retry:
-              command: "for i in {1..5}; do\n  aws ssm put-parameter --name \"/streaming-platform-backend/identity-pool-id\"\
-                \ --type String --value \"$(aws cloudformation describe-stacks --stack-name\
-                \ streaming-platform-infra-dev --query 'Stacks[0].Outputs[?OutputKey==`IdentityPoolId`].OutputValue'\
-                \ --output text)\" && break || sleep 10;\ndone\n"
+        Fn::Sub: ${AWS::StackName}-identity-pool-id
   CentralizedApiFunction:
     Type: AWS::Serverless::Function
     Properties:
