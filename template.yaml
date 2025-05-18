@@ -65,6 +65,9 @@ Resources:
             Path: /centralized
             Method: GET
             RestApiId: !Ref ApiGateway
+    DependsOn:
+      - UserPoolIdParameter
+      - IdentityPoolIdParameter
 
   ####################################
   # API Gateway
