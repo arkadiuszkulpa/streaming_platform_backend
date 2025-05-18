@@ -64,6 +64,9 @@ Resources:
             Method: GET
             RestApiId:
               Ref: ApiGateway
+    DependsOn:
+    - UserPoolIdParameter
+    - IdentityPoolIdParameter
     Metadata:
       SamResourceId: CentralizedApiFunction
   ApiGateway:
