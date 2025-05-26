@@ -26,7 +26,7 @@ phases:
       - echo Packaging the SAM application...
       - sam package --s3-bucket myai4-deployment-artifacts --output-template-file packaged-template.yaml --region $AWS_DEFAULT_REGION --debug
       - echo "Verifying packaging completed successfully..."
-      - if [ ! -f packaged-template.yaml ]; then echo "ERROR: packaged-template.yaml not created" && exit 1; fi
+      - if [ ! -f packaged-template.yaml ]; then echo "ERROR - packaged-template.yaml not created" && exit 1; fi
       - echo "Checking for S3 URIs in packaged template..."
       - grep -n "CodeUri" packaged-template.yaml || echo "No CodeUri found"
       - grep -n "s3://" packaged-template.yaml || echo "No S3 URIs found - this indicates packaging failed"
