@@ -10,13 +10,25 @@ phases:
       - pip install --upgrade awscli aws-sam-cli
       - pip install -r requirements.txt -t src/
 
+  pre_build:
+    commands:
+      - echo Creating S3 bucket for deployment artifacts if it doesn't exist...
+      - aws s3 mb s3://myai4-deployment-artifacts --region $AWS_DEFAULT_REGION || echo "Bucket already exists or creation failed"
+      - echo Verifying bucket exists...
+      - aws s3 ls s3://myai4-deployment-artifacts || exit 1
+
   build:
     commands:
-      - echo Building and packaging the SAM application...
-      - sam build
-      - sam package --s3-bucket myai4-deployment-artifacts --output-template-file packaged-template.yaml
+      - echo Building the SAM application...
+      - sam build --debug
+      - echo Packaging the SAM application...
+      - sam package --s3-bucket myai4-deployment-artifacts --output-template-file packaged-template.yaml --region $AWS_DEFAULT_REGION --debug
+      - echo Verifying packaged template was created...
+      - ls -la packaged-template.yaml
+      - echo "Contents of packaged template (first 50 lines):"
+      - head -50 packaged-template.yaml
       - echo Deploying the packaged application...
-      - sam deploy --template-file packaged-template.yaml --stack-name myai4-backend-dev --parameter-overrides Environment=dev --capabilities CAPABILITY_NAMED_IAM --no-confirm-changeset
+      - sam deploy --template-file packaged-template.yaml --stack-name myai4-backend-dev --parameter-overrides Environment=dev --capabilities CAPABILITY_NAMED_IAM --no-confirm-changeset --region $AWS_DEFAULT_REGION
 
 
   post_build:
