@@ -11,9 +11,8 @@ Parameters:
       - prod
     Default: dev
 
-  RapidApiKeyParameter:
-    Type: String
-    Description: RapidAPI Key stored in AWS SSM Parameter Store
+  # REMOVED: RapidApiKeyParameter as direct parameter
+  # Now retrieved from SSM Parameter Store
 
 Globals:
   Function:
@@ -56,7 +55,7 @@ Resources:
       Role: !GetAtt LambdaExecutionRole.Arn
       Environment:
         Variables:
-          RAPIDAPI_KEY: !Ref RapidApiKeyParameter
+          RAPIDAPI_KEY: !Sub "{{resolve:ssm-secure:/myai4/${Environment}/apis/rapidapi-key}}"
           USER_POOL_ID: !Ref UserPoolIdParameter
           IDENTITY_POOL_ID: !Ref IdentityPoolIdParameter
           USER_PROFILES_TABLE: !Ref UserProfilesTable
