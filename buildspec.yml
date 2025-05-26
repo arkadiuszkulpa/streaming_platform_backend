@@ -21,20 +21,25 @@ phases:
     commands:
       - echo Building the SAM application...
       - sam build --debug
+      - echo "Checking build output..."
+      - ls -la .aws-sam/build/
       - echo Packaging the SAM application...
       - sam package --s3-bucket myai4-deployment-artifacts --output-template-file packaged-template.yaml --region $AWS_DEFAULT_REGION --debug
-      - echo Verifying packaged template was created...
-      - ls -la packaged-template.yaml
-      - echo "Contents of packaged template (first 50 lines):"
-      - head -50 packaged-template.yaml
+      - echo "Verifying packaging completed successfully..."
+      - if [ ! -f packaged-template.yaml ]; then echo "ERROR: packaged-template.yaml not created" && exit 1; fi
+      - echo "Checking for S3 URIs in packaged template..."
+      - grep -n "CodeUri" packaged-template.yaml || echo "No CodeUri found"
+      - grep -n "s3://" packaged-template.yaml || echo "No S3 URIs found - this indicates packaging failed"
+      - echo "First 100 lines of packaged template:"
+      - head -100 packaged-template.yaml
       - echo Deploying the packaged application...
       - sam deploy --template-file packaged-template.yaml --stack-name myai4-backend-dev --parameter-overrides Environment=dev --capabilities CAPABILITY_NAMED_IAM --no-confirm-changeset --region $AWS_DEFAULT_REGION
-
 
   post_build:
     commands:
       - echo Deployment completed
-      #- pytest local_testing/ --junitxml=report.xml # Run tests and generate a report
+      - echo "Final stack status:"
+      - aws cloudformation describe-stacks --stack-name myai4-backend-dev --region $AWS_DEFAULT_REGION --query 'Stacks[0].StackStatus' --output text
 
 artifacts:
   files:
