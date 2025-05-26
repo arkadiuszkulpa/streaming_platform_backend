@@ -1,13 +1,19 @@
-sam deploy --template-file template.yaml --stack-name myai4-backend-dev --parameter-overrides Environment=dev RapidApiKeyParameter=RapidApiKeyParameter --capabilities CAPABILITY_NAMED_IAM --resolve-s3
+# Local development deployment with packaging
+sam build
+sam package --s3-bucket myai4-deployment-artifacts --output-template-file packaged-template.yaml
+sam deploy --template-file packaged-template.yaml --stack-name myai4-backend-dev --parameter-overrides Environment=dev --capabilities CAPABILITY_NAMED_IAM
 
+# Alternative using samconfig.toml (after updating it)
 sam deploy --config-env dev --config-file samconfig.toml
 
-# Delete the stack if needed (e.g in rollback state)
-aws cloudformation delete-stack --stack-name streaming-platform-infra-dev
+# Quick local deployment (works locally but not in CodePipeline)
+sam deploy --template-file template.yaml --stack-name myai4-backend-dev --parameter-overrides Environment=dev --capabilities CAPABILITY_NAMED_IAM --resolve-s3
 
-# --debug for extra debug information
+# Delete the stack if needed
+aws cloudformation delete-stack --stack-name myai4-backend-dev
 
-# Remember to create Pipeline for this backend
-
-# Alternative naming to match your backend parameter references
+# Create SSM parameter for RapidAPI key
 aws ssm put-parameter --name "/myai4/dev/apis/rapidapi-key" --value "c25b0c052amshd0a4b0025e57806p184f7bjsne9803d030862" --type "SecureString" --description "RapidAPI Key for MyAI4 ecosystem services"
+
+# Create S3 bucket for deployment artifacts (one-time setup)
+aws s3 mb s3://myai4-deployment-artifacts
