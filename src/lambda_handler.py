@@ -18,12 +18,23 @@ SUBSCRIPTIONS_TABLE = os.environ.get('SUBSCRIPTIONS_TABLE')
 SERVICE_PREFERENCES_TABLE = os.environ.get('SERVICE_PREFERENCES_TABLE')
 USER_USAGE_TABLE = os.environ.get('USER_USAGE_TABLE')
 FAMILY_GROUPS_TABLE = os.environ.get('FAMILY_GROUPS_TABLE')
+MOVIES_TABLE = os.environ.get('MOVIES_TABLE')
+WATCHLISTS_TABLE = os.environ.get('WATCHLISTS_TABLE')
+WATCH_HISTORY_TABLE = os.environ.get('WATCH_HISTORY_TABLE')
+STREAMING_PROFILES_TABLE = os.environ.get('STREAMING_PROFILES_TABLE')
+
+def get_rapidapi_key():
+    ssm = boto3.client('ssm')
+    parameter_name = os.environ['RAPIDAPI_KEY_PARAMETER']
+    response = ssm.get_parameter(Name=parameter_name, WithDecryption=True)
+    return response['Parameter']['Value']
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Centralized Lambda handler for MyAI4 ecosystem operations
     """
     try:
+        rapidapi_key = get_rapidapi_key()
         # Parse the operation from query parameters or request body
         http_method = event.get('httpMethod', 'GET')
         
