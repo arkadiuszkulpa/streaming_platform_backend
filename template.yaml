@@ -55,7 +55,8 @@ Resources:
       Role: !GetAtt LambdaExecutionRole.Arn
       Environment:
         Variables:
-          RAPIDAPI_KEY: !Sub "{{resolve:ssm-secure:/myai4/${Environment}/apis/rapidapi-key}}"
+          # REMOVED: RAPIDAPI_KEY - will be retrieved at runtime from SSM
+          RAPIDAPI_KEY_PARAMETER: !Sub "/myai4/${Environment}/apis/rapidapi-key"
           USER_POOL_ID: !Ref UserPoolIdParameter
           IDENTITY_POOL_ID: !Ref IdentityPoolIdParameter
           USER_PROFILES_TABLE: !Ref UserProfilesTable
