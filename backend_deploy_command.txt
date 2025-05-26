@@ -1,6 +1,4 @@
-sam deploy --template-file template.yaml --stack-name streaming-platform-backend-dev --parameter-overrides Environment=dev RapidApiKeyParameter=RapidApiKeyParameter --capabilities CAPABILITY_NAMED_IAM
-
-sam deploy --template-file template.yaml --stack-name streaming-platform-backend-dev --parameter-overrides Environment=dev RapidApiKeyParameter=RapidApiKeyParameter --capabilities CAPABILITY_NAMED_IAM --resolve-s3
+sam deploy --template-file template.yaml --stack-name myai4-backend-dev --parameter-overrides Environment=dev RapidApiKeyParameter=RapidApiKeyParameter --capabilities CAPABILITY_NAMED_IAM --resolve-s3
 
 sam deploy --config-env dev --config-file samconfig.toml
 
@@ -8,3 +6,8 @@ sam deploy --config-env dev --config-file samconfig.toml
 aws cloudformation delete-stack --stack-name streaming-platform-infra-dev
 
 # --debug for extra debug information
+
+# Remember to create Pipeline for this backend
+
+# Alternative naming to match your backend parameter references
+aws ssm put-parameter --name "/myai4/dev/apis/rapidapi-key" --value "c25b0c052amshd0a4b0025e57806p184f7bjsne9803d030862" --type "SecureString" --description "RapidAPI Key for MyAI4 ecosystem services"
