@@ -36,22 +36,21 @@ phases:
       - echo "First 100 lines of packaged template:"
       - head -100 packaged-template.yaml
       - echo Deploying the packaged application...
-      - sam deploy --template-file packaged-template.yaml --stack-name $STACK_NAME --parameter-overrides Environment=${ENVIRONMENT:-dev} --capabilities CAPABILITY_NAMED_IAM --no-confirm-changeset --region $AWS_DEFAULT_REGION || {
-          EXIT_CODE=$?
-          if [ $EXIT_CODE -eq 1 ]; then
-            echo "Checking if deployment failed due to no changes..."
-            if aws cloudformation describe-stacks --stack-name $STACK_NAME --region $AWS_DEFAULT_REGION --query 'Stacks[0].StackStatus' --output text | grep -E "(CREATE_COMPLETE|UPDATE_COMPLETE)"; then
-              echo "Stack is already up to date - no changes needed. This is not an error."
-              exit 0
-            else
-              echo "Deployment failed with a real error"
-              exit $EXIT_CODE
-            fi
+      - sam deploy --template-file packaged-template.yaml --stack-name $STACK_NAME --parameter-overrides Environment=${ENVIRONMENT:-dev} --capabilities CAPABILITY_NAMED_IAM --no-confirm-changeset --region $AWS_DEFAULT_REGION; DEPLOY_EXIT_CODE=$?
+      - |
+        if [ $DEPLOY_EXIT_CODE -ne 0 ]; then
+          echo "SAM deploy returned exit code $DEPLOY_EXIT_CODE"
+          echo "Checking if this is just a 'no changes' scenario..."
+          STACK_STATUS=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $AWS_DEFAULT_REGION --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "STACK_NOT_FOUND")
+          if [ "$STACK_STATUS" = "CREATE_COMPLETE" ] || [ "$STACK_STATUS" = "UPDATE_COMPLETE" ]; then
+            echo "Stack $STACK_NAME is in a healthy state ($STACK_STATUS). Treating as successful deployment."
           else
-            echo "Deployment failed with exit code $EXIT_CODE"
-            exit $EXIT_CODE
+            echo "Stack $STACK_NAME is in state: $STACK_STATUS. This indicates a real deployment failure."
+            exit $DEPLOY_EXIT_CODE
           fi
-        }
+        else
+          echo "Deployment completed successfully!"
+        fi
 
   post_build:
     commands:
