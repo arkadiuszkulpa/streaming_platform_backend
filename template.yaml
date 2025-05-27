@@ -56,7 +56,7 @@ Resources:
       Environment:
         Variables:
           # REMOVED: RAPIDAPI_KEY - will be retrieved at runtime from SSM
-          RAPIDAPI_KEY_PARAMETER: !Sub "/myai4/${Environment}/apis/rapidapi-key"
+          RAPIDAPI_KEY_PARAMETER: !Sub "{{resolve:secretsmanager:myai4/rapidapi/keys/oauth:SecretString:rapidapikey}}"
           USER_POOL_ID: !Ref UserPoolIdParameter
           IDENTITY_POOL_ID: !Ref IdentityPoolIdParameter
           USER_PROFILES_TABLE: !Ref UserProfilesTable
