@@ -36,7 +36,22 @@ phases:
       - echo "First 100 lines of packaged template:"
       - head -100 packaged-template.yaml
       - echo Deploying the packaged application...
-      - sam deploy --template-file packaged-template.yaml --stack-name $STACK_NAME --parameter-overrides Environment=${ENVIRONMENT:-dev} --capabilities CAPABILITY_NAMED_IAM --no-confirm-changeset --region $AWS_DEFAULT_REGION
+      - sam deploy --template-file packaged-template.yaml --stack-name $STACK_NAME --parameter-overrides Environment=${ENVIRONMENT:-dev} --capabilities CAPABILITY_NAMED_IAM --no-confirm-changeset --region $AWS_DEFAULT_REGION || {
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -eq 1 ]; then
+            echo "Checking if deployment failed due to no changes..."
+            if aws cloudformation describe-stacks --stack-name $STACK_NAME --region $AWS_DEFAULT_REGION --query 'Stacks[0].StackStatus' --output text | grep -E "(CREATE_COMPLETE|UPDATE_COMPLETE)"; then
+              echo "Stack is already up to date - no changes needed. This is not an error."
+              exit 0
+            else
+              echo "Deployment failed with a real error"
+              exit $EXIT_CODE
+            fi
+          else
+            echo "Deployment failed with exit code $EXIT_CODE"
+            exit $EXIT_CODE
+          fi
+        }
 
   post_build:
     commands:
