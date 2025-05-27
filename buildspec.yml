@@ -1,0 +1,54 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.12 # Use the Python version matching your Lambda runtime
+    commands:
+      - echo Installing dependencies...
+      - pip install --upgrade pip
+      - pip install --upgrade awscli aws-sam-cli
+      - pip install -r requirements.txt -t src/
+
+  pre_build:
+    commands:
+      - echo Creating S3 bucket for deployment artifacts if it does not exist...
+      - aws s3 mb s3://myai4-deployment-artifacts --region $AWS_DEFAULT_REGION || echo "Bucket already exists or creation failed"
+      - echo Verifying bucket exists...
+      - aws s3 ls s3://myai4-deployment-artifacts || exit 1
+
+  build:
+    commands:
+      - echo Building the SAM application...
+      - sam build --debug
+      - echo "Checking build output..."
+      - ls -la .aws-sam/build/
+      - echo Packaging the SAM application...
+      - sam package --s3-bucket myai4-deployment-artifacts --output-template-file packaged-template.yaml --region $AWS_DEFAULT_REGION --debug
+      - echo "Verifying packaging completed successfully..."
+      - if [ ! -f packaged-template.yaml ]; then echo "ERROR - packaged-template.yaml not created" && exit 1; fi
+      - echo "Checking for S3 URIs in packaged template..."
+      - grep -n "CodeUri" packaged-template.yaml || echo "No CodeUri found"
+      - grep -n "s3://" packaged-template.yaml || echo "No S3 URIs found - this indicates packaging failed"
+      - echo "First 100 lines of packaged template:"
+      - head -100 packaged-template.yaml
+      - echo Deploying the packaged application...
+      - sam deploy --template-file packaged-template.yaml --stack-name myai4-backend-dev --parameter-overrides Environment=dev --capabilities CAPABILITY_NAMED_IAM --no-confirm-changeset --region $AWS_DEFAULT_REGION
+
+  post_build:
+    commands:
+      - echo Deployment completed
+      - echo "Final stack status:"
+      - aws cloudformation describe-stacks --stack-name myai4-backend-dev --region $AWS_DEFAULT_REGION --query 'Stacks[0].StackStatus' --output text
+
+artifacts:
+  files:
+    - packaged-template.yaml
+    - .aws-sam/** # Include all SAM build artifacts
+    #- report.xml # Include test report for visibility in CodeBuild
+  discard-paths: no # Preserve the directory structure for deployment
+
+cache:
+  paths:
+    - .aws-sam/cache/** # Cache SAM build artifacts for faster builds
+    - .pip_cache/** # Cache Python dependencies
