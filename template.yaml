@@ -55,8 +55,8 @@ Resources:
       Role: !GetAtt LambdaExecutionRole.Arn
       Environment:
         Variables:
-          # REMOVED: RAPIDAPI_KEY - will be retrieved at runtime from SSM
-          RAPIDAPI_KEY_PARAMETER: !Sub "{{resolve:secretsmanager:myai4/rapidapi/keys/oauth:SecretString:rapidapikey}}"
+          # RapidAPI key will be retrieved at runtime from Secrets Manager
+          RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/oauth"
           USER_POOL_ID: !Ref UserPoolIdParameter
           IDENTITY_POOL_ID: !Ref IdentityPoolIdParameter
           USER_PROFILES_TABLE: !Ref UserProfilesTable
@@ -112,6 +112,14 @@ Resources:
                   - ssm:GetParameter
                   - ssm:GetParameters
                 Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/myai4/*"
+        - PolicyName: SecretsManagerAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:myai4/rapidapi/keys/oauth*"
       Tags:
         - Key: Environment
           Value: !Ref Environment

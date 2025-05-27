@@ -6,11 +6,16 @@ Handles all API operations for the MyAI4 ecosystem frontend
 import json
 import boto3
 import os
+from botocore.exceptions import ClientError
 from datetime import datetime
 from typing import Dict, Any, Optional
 
-# Initialize DynamoDB client
+# Initialize AWS clients
+secrets_client = boto3.client('secretsmanager')
 dynamodb = boto3.resource('dynamodb')
+
+# Cache for secrets to avoid repeated API calls
+_secret_cache = {}
 
 # Get table references from environment variables
 USER_PROFILES_TABLE = os.environ.get('USER_PROFILES_TABLE')
@@ -23,18 +28,37 @@ WATCHLISTS_TABLE = os.environ.get('WATCHLISTS_TABLE')
 WATCH_HISTORY_TABLE = os.environ.get('WATCH_HISTORY_TABLE')
 STREAMING_PROFILES_TABLE = os.environ.get('STREAMING_PROFILES_TABLE')
 
+def get_secret(secret_name):
+    """Retrieve secret from AWS Secrets Manager with caching"""
+    if secret_name in _secret_cache:
+        return _secret_cache[secret_name]
+    
+    try:
+        response = secrets_client.get_secret_value(SecretId=secret_name)
+        secret_data = json.loads(response['SecretString'])
+        _secret_cache[secret_name] = secret_data
+        return secret_data
+    except ClientError as e:
+        print(f"Error retrieving secret {secret_name}: {e}")
+        raise e
+
 def get_rapidapi_key():
-    ssm = boto3.client('ssm')
-    parameter_name = os.environ['RAPIDAPI_KEY_PARAMETER']
-    response = ssm.get_parameter(Name=parameter_name, WithDecryption=True)
-    return response['Parameter']['Value']
+    """Get RapidAPI key from Secrets Manager"""
+    secret_name = os.environ.get('RAPIDAPI_SECRET_NAME')
+    if not secret_name:
+        raise ValueError("RAPIDAPI_SECRET_NAME environment variable not set")
+    
+    secret_data = get_secret(secret_name)
+    return secret_data.get('rapidapikey')
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Centralized Lambda handler for MyAI4 ecosystem operations
     """
     try:
+        # Get RapidAPI key at runtime
         rapidapi_key = get_rapidapi_key()
+        
         # Parse the operation from query parameters or request body
         http_method = event.get('httpMethod', 'GET')
         
