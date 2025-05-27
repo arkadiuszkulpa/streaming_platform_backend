@@ -16,6 +16,9 @@ phases:
       - aws s3 mb s3://myai4-deployment-artifacts --region $AWS_DEFAULT_REGION || echo "Bucket already exists or creation failed"
       - echo Verifying bucket exists...
       - aws s3 ls s3://myai4-deployment-artifacts || exit 1
+      - echo "Environment is set to ${ENVIRONMENT:-dev}"
+      - export STACK_NAME="myai4-backend-${ENVIRONMENT:-dev}"
+      - echo "Stack name will be $STACK_NAME"
 
   build:
     commands:
@@ -33,13 +36,13 @@ phases:
       - echo "First 100 lines of packaged template:"
       - head -100 packaged-template.yaml
       - echo Deploying the packaged application...
-      - sam deploy --template-file packaged-template.yaml --stack-name myai4-backend-dev --parameter-overrides Environment=dev --capabilities CAPABILITY_NAMED_IAM --no-confirm-changeset --region $AWS_DEFAULT_REGION
+      - sam deploy --template-file packaged-template.yaml --stack-name $STACK_NAME --parameter-overrides Environment=${ENVIRONMENT:-dev} --capabilities CAPABILITY_NAMED_IAM --no-confirm-changeset --region $AWS_DEFAULT_REGION
 
   post_build:
     commands:
       - echo Deployment completed
       - echo "Final stack status:"
-      - aws cloudformation describe-stacks --stack-name myai4-backend-dev --region $AWS_DEFAULT_REGION --query 'Stacks[0].StackStatus' --output text
+      - aws cloudformation describe-stacks --stack-name $STACK_NAME --region $AWS_DEFAULT_REGION --query 'Stacks[0].StackStatus' --output text
 
 artifacts:
   files:
