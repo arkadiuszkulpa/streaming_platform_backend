@@ -24,33 +24,13 @@ phases:
     commands:
       - echo Building the SAM application...
       - sam build --debug
-      - echo "Checking build output..."
-      - ls -la .aws-sam/build/
       - echo Packaging the SAM application...
       - sam package --s3-bucket myai4-deployment-artifacts --output-template-file packaged-template.yaml --region $AWS_DEFAULT_REGION --debug
-      - echo "Verifying packaging completed successfully..."
-      - if [ ! -f packaged-template.yaml ]; then echo "ERROR - packaged-template.yaml not created" && exit 1; fi
-      - echo "Checking for S3 URIs in packaged template..."
-      - grep -n "CodeUri" packaged-template.yaml || echo "No CodeUri found"
-      - grep -n "s3://" packaged-template.yaml || echo "No S3 URIs found - this indicates packaging failed"
       - echo Deploying the packaged application...
       - |
+        set -e
         sam deploy --template-file packaged-template.yaml --stack-name $STACK_NAME --parameter-overrides Environment=${ENVIRONMENT:-dev} --capabilities CAPABILITY_NAMED_IAM --no-confirm-changeset --region $AWS_DEFAULT_REGION
-        DEPLOY_EXIT_CODE=$?
-        if [ $DEPLOY_EXIT_CODE -ne 0 ]; then
-          echo "SAM deploy returned exit code $DEPLOY_EXIT_CODE"
-          echo "Checking if this is just a 'no changes' scenario..."
-          STACK_STATUS=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $AWS_DEFAULT_REGION --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "STACK_NOT_FOUND")
-          if [ "$STACK_STATUS" = "CREATE_COMPLETE" ] || [ "$STACK_STATUS" = "UPDATE_COMPLETE" ]; then
-            echo "Stack $STACK_NAME is in a healthy state ($STACK_STATUS). Treating as successful deployment."
-          else
-            echo "Stack $STACK_NAME is in state: $STACK_STATUS. This indicates a real deployment failure."
-            exit $DEPLOY_EXIT_CODE
-          fi
-        else
-          echo "Deployment completed successfully!"
-        fi
-
+      
   post_build:
     commands:
       - echo Deployment completed
