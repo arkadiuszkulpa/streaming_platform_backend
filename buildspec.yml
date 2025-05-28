@@ -33,8 +33,6 @@ phases:
       - echo "Checking for S3 URIs in packaged template..."
       - grep -n "CodeUri" packaged-template.yaml || echo "No CodeUri found"
       - grep -n "s3://" packaged-template.yaml || echo "No S3 URIs found - this indicates packaging failed"
-      - echo "First 100 lines of packaged template:"
-      - head -100 packaged-template.yaml
       - echo Deploying the packaged application...
       - |
         sam deploy --template-file packaged-template.yaml --stack-name $STACK_NAME --parameter-overrides Environment=${ENVIRONMENT:-dev} --capabilities CAPABILITY_NAMED_IAM --no-confirm-changeset --region $AWS_DEFAULT_REGION
