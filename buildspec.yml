@@ -36,8 +36,9 @@ phases:
       - echo "First 100 lines of packaged template:"
       - head -100 packaged-template.yaml
       - echo Deploying the packaged application...
-      - sam deploy --template-file packaged-template.yaml --stack-name $STACK_NAME --parameter-overrides Environment=${ENVIRONMENT:-dev} --capabilities CAPABILITY_NAMED_IAM --no-confirm-changeset --region $AWS_DEFAULT_REGION; DEPLOY_EXIT_CODE=$?
       - |
+        sam deploy --template-file packaged-template.yaml --stack-name $STACK_NAME --parameter-overrides Environment=${ENVIRONMENT:-dev} --capabilities CAPABILITY_NAMED_IAM --no-confirm-changeset --region $AWS_DEFAULT_REGION
+        DEPLOY_EXIT_CODE=$?
         if [ $DEPLOY_EXIT_CODE -ne 0 ]; then
           echo "SAM deploy returned exit code $DEPLOY_EXIT_CODE"
           echo "Checking if this is just a 'no changes' scenario..."

@@ -76,3 +76,6 @@ htmlcov/
 .Spotlight-V100
 .Trashes
 ehthumbs.db
+
+#temp context files
+temp_context_files/
