@@ -135,7 +135,7 @@ Resources:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     Properties:
-      TableName: !Sub "myai4-user-profiles-${Environment}"
+      TableName: !Sub "myai4-user-profiles-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: userId
@@ -169,7 +169,7 @@ Resources:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     Properties:
-      TableName: !Sub "myai4-subscriptions-${Environment}"
+      TableName: !Sub "myai4-subscriptions-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: userId
@@ -209,7 +209,7 @@ Resources:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     Properties:
-      TableName: !Sub "myai4-service-preferences-${Environment}"
+      TableName: !Sub "myai4-service-preferences-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: userId
@@ -238,7 +238,7 @@ Resources:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     Properties:
-      TableName: !Sub "myai4-user-usage-${Environment}"
+      TableName: !Sub "myai4-user-usage-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: userId
@@ -278,7 +278,7 @@ Resources:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     Properties:
-      TableName: !Sub "myai4-family-groups-${Environment}"
+      TableName: !Sub "myai4-family-groups-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: familyId
@@ -316,7 +316,7 @@ Resources:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     Properties:
-      TableName: !Sub "myai4-movies-${Environment}"
+      TableName: !Sub "myai4-movies-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: movieId
@@ -362,7 +362,7 @@ Resources:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     Properties:
-      TableName: !Sub "myai4-watchlists-${Environment}"
+      TableName: !Sub "myai4-watchlists-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: userId
@@ -402,7 +402,7 @@ Resources:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     Properties:
-      TableName: !Sub "myai4-watch-history-${Environment}"
+      TableName: !Sub "myai4-watch-history-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: userId
@@ -452,7 +452,7 @@ Resources:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     Properties:
-      TableName: !Sub "myai4-streaming-profiles-${Environment}"
+      TableName: !Sub "myai4-streaming-profiles-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: profileId
