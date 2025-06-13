@@ -130,12 +130,12 @@ Resources:
   # DynamoDB Tables - MyAI4 Ecosystem
   ####################################
 
-  # TABLE 1: UserProfiles - Core user data and ecosystem settings
-  UserProfilesTable:
+  # TABLE 1: AccountTable - Core account data (previously UserProfilesTable)
+  AccountTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     Properties:
-      TableName: !Sub "myai4-user-profiles-${AWS::StackName}"
+      TableName: !Sub "myai4-account-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: userId
@@ -162,7 +162,7 @@ Resources:
         - Key: Service
           Value: MyAI4-Ecosystem
         - Key: DataType
-          Value: UserProfiles
+          Value: Account
 
   # TABLE 2: Subscriptions - Cross-service subscription management
   SubscriptionsTable:
@@ -447,25 +447,25 @@ Resources:
         - Key: DataType
           Value: WatchHistory
 
-  # TABLE 9: StreamingProfiles - Streaming profiles (different from user accounts)
-  StreamingProfilesTable:
+  # TABLE 9: ProfilesTable - User profiles within accounts (previously StreamingProfilesTable)
+  ProfilesTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     Properties:
-      TableName: !Sub "myai4-streaming-profiles-${AWS::StackName}"
+      TableName: !Sub "myai4-profiles-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: profileId
           AttributeType: S
-        - AttributeName: userId
+        - AttributeName: accountId
           AttributeType: S
       KeySchema:
         - AttributeName: profileId
           KeyType: HASH
       GlobalSecondaryIndexes:
-        - IndexName: UserIndex
+        - IndexName: AccountIndex
           KeySchema:
-            - AttributeName: userId
+            - AttributeName: accountId
               KeyType: HASH
           Projection:
             ProjectionType: ALL
@@ -477,9 +477,9 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
         - Key: Service
-          Value: MyAI4-Stream
+          Value: MyAI4-Ecosystem
         - Key: DataType
-          Value: StreamingProfiles
+          Value: Profiles
 
 ####################################
 # Outputs
@@ -491,11 +491,11 @@ Outputs:
     Export:
       Name: !Sub "${AWS::StackName}-ApiUrl"
 
-  UserProfilesTableName:
-    Description: Name of the UserProfiles DynamoDB table
-    Value: !Ref UserProfilesTable
+  AccountTableName:
+    Description: Name of the Account DynamoDB table
+    Value: !Ref AccountTable
     Export:
-      Name: !Sub "${AWS::StackName}-UserProfilesTable"
+      Name: !Sub "${AWS::StackName}-AccountTable"
 
   SubscriptionsTableName:
     Description: Name of the Subscriptions DynamoDB table
@@ -539,8 +539,8 @@ Outputs:
     Export:
       Name: !Sub "${AWS::StackName}-WatchHistoryTable"
 
-  StreamingProfilesTableName:
-    Description: Name of the StreamingProfiles DynamoDB table
-    Value: !Ref StreamingProfilesTable
+  ProfilesTableName:
+    Description: Name of the Profiles DynamoDB table
+    Value: !Ref ProfilesTable
     Export:
-      Name: !Sub "${AWS::StackName}-StreamingProfilesTable"
+      Name: !Sub "${AWS::StackName}-ProfilesTable"
