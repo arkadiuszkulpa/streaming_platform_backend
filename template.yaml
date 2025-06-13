@@ -59,7 +59,7 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/oauth"
           USER_POOL_ID: !Ref UserPoolIdParameter
           IDENTITY_POOL_ID: !Ref IdentityPoolIdParameter
-          USER_PROFILES_TABLE: !Ref AccountTable  # Changed from UserProfilesTable to AccountTable
+          USER_PROFILES_TABLE: !Ref UserProfilesTable
           SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
           SERVICE_PREFERENCES_TABLE: !Ref ServicePreferencesTable
           USER_USAGE_TABLE: !Ref UserUsageTable
@@ -67,7 +67,7 @@ Resources:
           MOVIES_TABLE: !Ref MoviesTable
           WATCHLISTS_TABLE: !Ref WatchlistsTable
           WATCH_HISTORY_TABLE: !Ref WatchHistoryTable
-          STREAMING_PROFILES_TABLE: !Ref ProfilesTable  # Changed from StreamingProfilesTable to ProfilesTable
+          STREAMING_PROFILES_TABLE: !Ref StreamingProfilesTable
       Events:
         ApiEvent:
           Type: Api
@@ -130,39 +130,9 @@ Resources:
   # DynamoDB Tables - MyAI4 Ecosystem
   ####################################
 
-  # TABLE 1: AccountTable - Core account data (previously UserProfilesTable)
-  AccountTable:
-    Type: AWS::DynamoDB::Table
-    DeletionPolicy: Retain
-    Properties:
-      TableName: !Sub "myai4-account-${AWS::StackName}"
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: userId
-          AttributeType: S
-        - AttributeName: email
-          AttributeType: S
-      KeySchema:
-        - AttributeName: userId
-          KeyType: HASH
-      GlobalSecondaryIndexes:
-        - IndexName: EmailIndex
-          KeySchema:
-            - AttributeName: email
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      SSESpecification:
-        SSEEnabled: true
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Service
-          Value: MyAI4-Ecosystem
-        - Key: DataType
-          Value: Account
+  # TABLE 1: AccountTable - MOVED TO INFRASTRUCTURE STACK
+  # This has been moved to the infrastructure stack since it's related to authentication
+  # and is created during the post-confirmation process
 
   # TABLE 2: Subscriptions - Cross-service subscription management
   SubscriptionsTable:
@@ -490,12 +460,6 @@ Outputs:
     Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/centralized"
     Export:
       Name: !Sub "${AWS::StackName}-ApiUrl"
-
-  AccountTableName:
-    Description: Name of the Account DynamoDB table
-    Value: !Ref AccountTable
-    Export:
-      Name: !Sub "${AWS::StackName}-AccountTable"
 
   SubscriptionsTableName:
     Description: Name of the Subscriptions DynamoDB table
