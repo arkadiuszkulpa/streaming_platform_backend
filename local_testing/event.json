@@ -1,9 +1,19 @@
+// {
+//   "rawPath": "/api",
+//   "requestContext": {
+//       "http": {
+//           "method": "POST"
+//       }
+//   },
+//   "body": "{\"action\": \"get_movie_info\", \"movie_id\": \"399566\"}"
+// }
+
 {
   "rawPath": "/api",
   "requestContext": {
-      "http": {
-          "method": "POST"
-      }
+    "http": {
+      "method": "POST"
+    }
   },
-  "body": "{\"action\": \"get_movie_info\", \"movie_id\": \"399566\"}"
+  "body": "{\"operation\": \"createProfile\", \"userId\": \"user_123\", \"name\": \"Test Profile\", \"isChild\": false}"
 }
