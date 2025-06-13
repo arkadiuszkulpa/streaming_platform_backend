@@ -79,3 +79,6 @@ ehthumbs.db
 
 #temp context files
 temp_context_files/
+
+#github copilot instructions
+.github/
