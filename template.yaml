@@ -59,7 +59,7 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/oauth"
           USER_POOL_ID: !Ref UserPoolIdParameter
           IDENTITY_POOL_ID: !Ref IdentityPoolIdParameter
-          USER_PROFILES_TABLE: !Ref UserProfilesTable
+          USER_PROFILES_TABLE: !Ref AccountTable  # Changed from UserProfilesTable to AccountTable
           SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
           SERVICE_PREFERENCES_TABLE: !Ref ServicePreferencesTable
           USER_USAGE_TABLE: !Ref UserUsageTable
@@ -67,7 +67,7 @@ Resources:
           MOVIES_TABLE: !Ref MoviesTable
           WATCHLISTS_TABLE: !Ref WatchlistsTable
           WATCH_HISTORY_TABLE: !Ref WatchHistoryTable
-          STREAMING_PROFILES_TABLE: !Ref StreamingProfilesTable
+          STREAMING_PROFILES_TABLE: !Ref ProfilesTable  # Changed from StreamingProfilesTable to ProfilesTable
       Events:
         ApiEvent:
           Type: Api
