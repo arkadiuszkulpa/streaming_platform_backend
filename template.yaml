@@ -68,6 +68,7 @@ Resources:
           WATCHLISTS_TABLE: !Ref WatchlistsTable
           WATCH_HISTORY_TABLE: !Ref WatchHistoryTable
           STREAMING_PROFILES_TABLE: !Ref StreamingProfilesTable
+          ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
       Events:
         ApiEvent:
           Type: Api

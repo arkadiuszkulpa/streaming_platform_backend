@@ -17,3 +17,6 @@ aws ssm put-parameter --name "/myai4/dev/apis/rapidapi-key" --value "c25b0c052am
 
 # Create S3 bucket for deployment artifacts (one-time setup)
 aws s3 mb s3://myai4-deployment-artifacts
+
+# Update Lambda easily
+cd c:\Projects\streaming_platform_backend; .\refresh-lambda_handler.ps1
