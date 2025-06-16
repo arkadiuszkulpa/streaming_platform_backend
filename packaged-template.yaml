@@ -1,0 +1,571 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: MyAI4 Ecosystem Backend Stack - Unified backend services for streaming,
+  shopping, gaming, and AI-powered services
+Parameters:
+  Environment:
+    Type: String
+    Description: The environment for this stack (e.g., dev, prod)
+    AllowedValues:
+    - dev
+    - prod
+    Default: dev
+Globals:
+  Function:
+    Timeout: 10
+    Runtime: python3.12
+    MemorySize: 256
+    Tags:
+      Environment:
+        Ref: Environment
+      Project:
+        Ref: AWS::StackName
+Resources:
+  UserPoolIdParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name:
+        Fn::Sub: /myai4/${Environment}/cognito/user-pool-id
+      Type: String
+      Value:
+        Fn::Sub: ${AWS::StackName}-user-pool-id
+      Description: User Pool ID for MyAI4 services
+    Metadata:
+      SamResourceId: UserPoolIdParameter
+  IdentityPoolIdParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name:
+        Fn::Sub: /myai4/${Environment}/cognito/identity-pool-id
+      Type: String
+      Value:
+        Fn::Sub: ${AWS::StackName}-identity-pool-id
+      Description: Identity Pool ID for MyAI4 services
+    Metadata:
+      SamResourceId: IdentityPoolIdParameter
+  CentralizedApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: centralized_api-${AWS::StackName}
+      CodeUri: s3://myai4-deployment-artifacts/4369f4ce07ea32126612d2a7570a03d1
+      Handler: lambda_handler.lambda_handler
+      Role:
+        Fn::GetAtt:
+        - LambdaExecutionRole
+        - Arn
+      Environment:
+        Variables:
+          RAPIDAPI_KEY_PARAMETER:
+            Fn::Sub: /myai4/${Environment}/apis/rapidapi-key
+          USER_POOL_ID:
+            Ref: UserPoolIdParameter
+          IDENTITY_POOL_ID:
+            Ref: IdentityPoolIdParameter
+          USER_PROFILES_TABLE:
+            Ref: UserProfilesTable
+          SUBSCRIPTIONS_TABLE:
+            Ref: SubscriptionsTable
+          SERVICE_PREFERENCES_TABLE:
+            Ref: ServicePreferencesTable
+          USER_USAGE_TABLE:
+            Ref: UserUsageTable
+          FAMILY_GROUPS_TABLE:
+            Ref: FamilyGroupsTable
+          MOVIES_TABLE:
+            Ref: MoviesTable
+          WATCHLISTS_TABLE:
+            Ref: WatchlistsTable
+          WATCH_HISTORY_TABLE:
+            Ref: WatchHistoryTable
+          STREAMING_PROFILES_TABLE:
+            Ref: StreamingProfilesTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ApiGateway
+            Path: /centralized
+            Method: ANY
+    Metadata:
+      SamResourceId: CentralizedApiFunction
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName:
+        Ref: Environment
+    Metadata:
+      SamResourceId: ApiGateway
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Fn::Sub: lambda_exec_role-${AWS::StackName}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
+      - arn:aws:iam::aws:policy/CloudWatchFullAccess
+      Policies:
+      - PolicyName: SSMParameterAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - ssm:GetParameter
+            - ssm:GetParameters
+            Resource:
+              Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/myai4/*
+      Tags:
+      - Key: Environment
+        Value:
+          Ref: Environment
+      - Key: Project
+        Value:
+          Ref: AWS::StackName
+    Metadata:
+      SamResourceId: LambdaExecutionRole
+  UserProfilesTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName:
+        Fn::Sub: myai4-user-profiles-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: userId
+        AttributeType: S
+      - AttributeName: email
+        AttributeType: S
+      KeySchema:
+      - AttributeName: userId
+        KeyType: HASH
+      GlobalSecondaryIndexes:
+      - IndexName: EmailIndex
+        KeySchema:
+        - AttributeName: email
+          KeyType: HASH
+        Projection:
+          ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+      - Key: Environment
+        Value:
+          Ref: Environment
+      - Key: Service
+        Value: MyAI4-Ecosystem
+      - Key: DataType
+        Value: UserProfiles
+    Metadata:
+      SamResourceId: UserProfilesTable
+  SubscriptionsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName:
+        Fn::Sub: myai4-subscriptions-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: userId
+        AttributeType: S
+      - AttributeName: subscriptionId
+        AttributeType: S
+      - AttributeName: serviceType
+        AttributeType: S
+      KeySchema:
+      - AttributeName: userId
+        KeyType: HASH
+      - AttributeName: subscriptionId
+        KeyType: RANGE
+      GlobalSecondaryIndexes:
+      - IndexName: ServiceTypeIndex
+        KeySchema:
+        - AttributeName: serviceType
+          KeyType: HASH
+        - AttributeName: userId
+          KeyType: RANGE
+        Projection:
+          ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+      - Key: Environment
+        Value:
+          Ref: Environment
+      - Key: Service
+        Value: MyAI4-Ecosystem
+      - Key: DataType
+        Value: Subscriptions
+    Metadata:
+      SamResourceId: SubscriptionsTable
+  ServicePreferencesTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName:
+        Fn::Sub: myai4-service-preferences-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: userId
+        AttributeType: S
+      - AttributeName: serviceType
+        AttributeType: S
+      KeySchema:
+      - AttributeName: userId
+        KeyType: HASH
+      - AttributeName: serviceType
+        KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+      - Key: Environment
+        Value:
+          Ref: Environment
+      - Key: Service
+        Value: MyAI4-Ecosystem
+      - Key: DataType
+        Value: ServicePreferences
+    Metadata:
+      SamResourceId: ServicePreferencesTable
+  UserUsageTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName:
+        Fn::Sub: myai4-user-usage-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: userId
+        AttributeType: S
+      - AttributeName: timestamp
+        AttributeType: S
+      - AttributeName: serviceType
+        AttributeType: S
+      KeySchema:
+      - AttributeName: userId
+        KeyType: HASH
+      - AttributeName: timestamp
+        KeyType: RANGE
+      GlobalSecondaryIndexes:
+      - IndexName: ServiceTypeIndex
+        KeySchema:
+        - AttributeName: serviceType
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+        Projection:
+          ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+      - Key: Environment
+        Value:
+          Ref: Environment
+      - Key: Service
+        Value: MyAI4-Ecosystem
+      - Key: DataType
+        Value: UserUsage
+    Metadata:
+      SamResourceId: UserUsageTable
+  FamilyGroupsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName:
+        Fn::Sub: myai4-family-groups-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: familyId
+        AttributeType: S
+      - AttributeName: parentUserId
+        AttributeType: S
+      KeySchema:
+      - AttributeName: familyId
+        KeyType: HASH
+      GlobalSecondaryIndexes:
+      - IndexName: ParentUserIndex
+        KeySchema:
+        - AttributeName: parentUserId
+          KeyType: HASH
+        Projection:
+          ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+      - Key: Environment
+        Value:
+          Ref: Environment
+      - Key: Service
+        Value: MyAI4-Ecosystem
+      - Key: DataType
+        Value: FamilyGroups
+    Metadata:
+      SamResourceId: FamilyGroupsTable
+  MoviesTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName:
+        Fn::Sub: myai4-movies-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: movieId
+        AttributeType: S
+      - AttributeName: genre
+        AttributeType: S
+      - AttributeName: releaseYear
+        AttributeType: N
+      - AttributeName: title
+        AttributeType: S
+      KeySchema:
+      - AttributeName: movieId
+        KeyType: HASH
+      GlobalSecondaryIndexes:
+      - IndexName: GenreIndex
+        KeySchema:
+        - AttributeName: genre
+          KeyType: HASH
+        - AttributeName: releaseYear
+          KeyType: RANGE
+        Projection:
+          ProjectionType: ALL
+      - IndexName: TitleIndex
+        KeySchema:
+        - AttributeName: title
+          KeyType: HASH
+        Projection:
+          ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+      - Key: Environment
+        Value:
+          Ref: Environment
+      - Key: Service
+        Value: MyAI4-Stream
+      - Key: DataType
+        Value: Movies
+    Metadata:
+      SamResourceId: MoviesTable
+  WatchlistsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName:
+        Fn::Sub: myai4-watchlists-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: userId
+        AttributeType: S
+      - AttributeName: movieId
+        AttributeType: S
+      - AttributeName: profileId
+        AttributeType: S
+      KeySchema:
+      - AttributeName: userId
+        KeyType: HASH
+      - AttributeName: movieId
+        KeyType: RANGE
+      GlobalSecondaryIndexes:
+      - IndexName: ProfileIndex
+        KeySchema:
+        - AttributeName: profileId
+          KeyType: HASH
+        - AttributeName: movieId
+          KeyType: RANGE
+        Projection:
+          ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+      - Key: Environment
+        Value:
+          Ref: Environment
+      - Key: Service
+        Value: MyAI4-Stream
+      - Key: DataType
+        Value: Watchlists
+    Metadata:
+      SamResourceId: WatchlistsTable
+  WatchHistoryTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName:
+        Fn::Sub: myai4-watch-history-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: userId
+        AttributeType: S
+      - AttributeName: watchedAt
+        AttributeType: S
+      - AttributeName: profileId
+        AttributeType: S
+      - AttributeName: movieId
+        AttributeType: S
+      KeySchema:
+      - AttributeName: userId
+        KeyType: HASH
+      - AttributeName: watchedAt
+        KeyType: RANGE
+      GlobalSecondaryIndexes:
+      - IndexName: ProfileIndex
+        KeySchema:
+        - AttributeName: profileId
+          KeyType: HASH
+        - AttributeName: watchedAt
+          KeyType: RANGE
+        Projection:
+          ProjectionType: ALL
+      - IndexName: MovieIndex
+        KeySchema:
+        - AttributeName: movieId
+          KeyType: HASH
+        - AttributeName: watchedAt
+          KeyType: RANGE
+        Projection:
+          ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+      - Key: Environment
+        Value:
+          Ref: Environment
+      - Key: Service
+        Value: MyAI4-Stream
+      - Key: DataType
+        Value: WatchHistory
+    Metadata:
+      SamResourceId: WatchHistoryTable
+  StreamingProfilesTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName:
+        Fn::Sub: myai4-streaming-profiles-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: profileId
+        AttributeType: S
+      - AttributeName: userId
+        AttributeType: S
+      KeySchema:
+      - AttributeName: profileId
+        KeyType: HASH
+      GlobalSecondaryIndexes:
+      - IndexName: UserIndex
+        KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        Projection:
+          ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+      - Key: Environment
+        Value:
+          Ref: Environment
+      - Key: Service
+        Value: MyAI4-Stream
+      - Key: DataType
+        Value: StreamingProfiles
+    Metadata:
+      SamResourceId: StreamingProfilesTable
+Outputs:
+  ApiUrl:
+    Description: URL of the MyAI4 centralized API
+    Value:
+      Fn::Sub: https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/centralized
+    Export:
+      Name:
+        Fn::Sub: ${AWS::StackName}-ApiUrl
+  UserProfilesTableName:
+    Description: Name of the UserProfiles DynamoDB table
+    Value:
+      Ref: UserProfilesTable
+    Export:
+      Name:
+        Fn::Sub: ${AWS::StackName}-UserProfilesTable
+  SubscriptionsTableName:
+    Description: Name of the Subscriptions DynamoDB table
+    Value:
+      Ref: SubscriptionsTable
+    Export:
+      Name:
+        Fn::Sub: ${AWS::StackName}-SubscriptionsTable
+  ServicePreferencesTableName:
+    Description: Name of the ServicePreferences DynamoDB table
+    Value:
+      Ref: ServicePreferencesTable
+    Export:
+      Name:
+        Fn::Sub: ${AWS::StackName}-ServicePreferencesTable
+  UserUsageTableName:
+    Description: Name of the UserUsage DynamoDB table
+    Value:
+      Ref: UserUsageTable
+    Export:
+      Name:
+        Fn::Sub: ${AWS::StackName}-UserUsageTable
+  FamilyGroupsTableName:
+    Description: Name of the FamilyGroups DynamoDB table
+    Value:
+      Ref: FamilyGroupsTable
+    Export:
+      Name:
+        Fn::Sub: ${AWS::StackName}-FamilyGroupsTable
+  MoviesTableName:
+    Description: Name of the Movies DynamoDB table
+    Value:
+      Ref: MoviesTable
+    Export:
+      Name:
+        Fn::Sub: ${AWS::StackName}-MoviesTable
+  WatchlistsTableName:
+    Description: Name of the Watchlists DynamoDB table
+    Value:
+      Ref: WatchlistsTable
+    Export:
+      Name:
+        Fn::Sub: ${AWS::StackName}-WatchlistsTable
+  WatchHistoryTableName:
+    Description: Name of the WatchHistory DynamoDB table
+    Value:
+      Ref: WatchHistoryTable
+    Export:
+      Name:
+        Fn::Sub: ${AWS::StackName}-WatchHistoryTable
+  StreamingProfilesTableName:
+    Description: Name of the StreamingProfiles DynamoDB table
+    Value:
+      Ref: StreamingProfilesTable
+    Export:
+      Name:
+        Fn::Sub: ${AWS::StackName}-StreamingProfilesTable
