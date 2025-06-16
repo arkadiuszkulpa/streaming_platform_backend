@@ -58,7 +58,7 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           USER_POOL_ID: !Ref UserPoolIdParameter
           IDENTITY_POOL_ID: !Ref IdentityPoolIdParameter
-          USER_PROFILES_TABLE: !Ref UserProfilesTable
+          PROFILES_TABLE: !Ref ProfilesTable
           SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
           SERVICE_PREFERENCES_TABLE: !Ref ServicePreferencesTable
           USER_USAGE_TABLE: !Ref UserUsageTable
@@ -66,7 +66,6 @@ Resources:
           MOVIES_TABLE: !Ref MoviesTable
           WATCHLISTS_TABLE: !Ref WatchlistsTable
           WATCH_HISTORY_TABLE: !Ref WatchHistoryTable
-          STREAMING_PROFILES_TABLE: !Ref ProfilesTable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
       Events:
         ApiEvent:
@@ -276,40 +275,6 @@ Resources:
           Value: MyAI4-Ecosystem
         - Key: DataType
           Value: FamilyGroups
-
-  # TABLE: UserProfiles - User profile data
-  UserProfilesTable:
-    Type: AWS::DynamoDB::Table
-    DeletionPolicy: Retain
-    Properties:
-      TableName: !Sub "myai4-user-profiles-${AWS::StackName}"
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: userId
-          AttributeType: S
-        - AttributeName: email
-          AttributeType: S
-      KeySchema:
-        - AttributeName: userId
-          KeyType: HASH
-      GlobalSecondaryIndexes:
-        - IndexName: EmailIndex
-          KeySchema:
-            - AttributeName: email
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      SSESpecification:
-        SSEEnabled: true
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Service
-          Value: MyAI4-Ecosystem
-        - Key: DataType
-          Value: UserProfiles
 
   ####################################
   # Streaming Platform Tables
@@ -542,9 +507,3 @@ Outputs:
     Value: !Ref ProfilesTable
     Export:
       Name: !Sub "${AWS::StackName}-ProfilesTable"
-
-  UserProfilesTableName:
-    Description: Name of the UserProfiles DynamoDB table
-    Value: !Ref UserProfilesTable
-    Export:
-      Name: !Sub "${AWS::StackName}-UserProfilesTable"

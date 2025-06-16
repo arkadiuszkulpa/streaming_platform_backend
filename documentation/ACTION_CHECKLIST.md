@@ -84,9 +84,9 @@
 - [x] **Lambda integration complete** - Account linking handled by dedicated Lambda in infrastructure stack ✅ COMPLETED
 - [x] **Email-based account matching** - Successfully links social and password accounts with same email ✅ COMPLETED
 - [x] **Social identity consolidation** - User data merged when multiple auth methods detected ✅ COMPLETED
-- [x] **Backend API integration** - Connected to UserProfilesTable for account unification ✅ COMPLETED
+- [x] **Backend API integration** - Connected to ProfilesTable for account unification ✅ COMPLETED
 
-**Next Steps**: Integrate authenticated Cognito users with ProfilesTable for profile management
+**Next Steps**: Continue enhancing ProfilesTable functionality with additional features
 
 ### 6. **Profile Backend Connections** 🗄️ [HIGH PRIORITY - FRONTEND REPO]  
 **Owner**: Frontend Team (This Repository)

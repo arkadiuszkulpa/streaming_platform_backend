@@ -16,7 +16,7 @@ from botocore.exceptions import ClientError
 dynamodb = boto3.resource('dynamodb')
 
 # Environment variables - populated from CloudFormation template
-USER_PROFILES_TABLE = os.environ.get('USER_PROFILES_TABLE')
+PROFILES_TABLE = os.environ.get('PROFILES_TABLE')  # This now points to the ProfilesTable resource
 SUBSCRIPTIONS_TABLE = os.environ.get('SUBSCRIPTIONS_TABLE')
 SERVICE_PREFERENCES_TABLE = os.environ.get('SERVICE_PREFERENCES_TABLE')
 USER_USAGE_TABLE = os.environ.get('USER_USAGE_TABLE')
@@ -24,7 +24,6 @@ FAMILY_GROUPS_TABLE = os.environ.get('FAMILY_GROUPS_TABLE')
 MOVIES_TABLE = os.environ.get('MOVIES_TABLE')
 WATCHLISTS_TABLE = os.environ.get('WATCHLISTS_TABLE')
 WATCH_HISTORY_TABLE = os.environ.get('WATCH_HISTORY_TABLE')
-PROFILES_TABLE = os.environ.get('STREAMING_PROFILES_TABLE')  # Aligned with ProfilesTable in template.yaml
 
 # Mock RapidAPI key function - remove when integrating
 def get_rapidapi_key():

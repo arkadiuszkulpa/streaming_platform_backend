@@ -107,7 +107,7 @@ TARGET STATE: MyAI4 Ecosystem (Hybrid Platform)
 - **Lambda Functions**: Python-based backend with environment configuration (no AWS Amplify)
 - **Database Design**: 8 application DynamoDB tables plus AccountTable in infrastructure stack
   - **Authentication Table** (in infrastructure stack): AccountTable
-  - **Cross-Service Tables**: UserProfiles, Subscriptions, ServicePreferences, UserUsage, FamilyGroups
+  - **Cross-Service Tables**: Profiles, Subscriptions, ServicePreferences, UserUsage, FamilyGroups
   - **Streaming-Specific**: Movies, Watchlists, WatchHistory, StreamingProfiles
 - **Service Integration**: UserDataService.ts with centralized API client pattern
 
@@ -530,7 +530,7 @@ This project is proprietary software for the MyAI4 ecosystem. All rights reserve
 
 ### MyAI4 Ecosystem Tables (Cross-Service)
 
-1. **UserProfiles** (`myai4-user-profiles-{env}`)
+1. **Profiles** (`myai4-profiles-{env}`)
    - Primary Key: `userId`
    - GSI: `EmailIndex` for email-based lookups
    - Purpose: Core user data across all MyAI4 services
