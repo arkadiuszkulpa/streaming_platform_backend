@@ -277,6 +277,40 @@ Resources:
         - Key: DataType
           Value: FamilyGroups
 
+  # TABLE: UserProfiles - User profile data
+  UserProfilesTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: !Sub "myai4-user-profiles-${AWS::StackName}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: EmailIndex
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: MyAI4-Ecosystem
+        - Key: DataType
+          Value: UserProfiles
+
   ####################################
   # Streaming Platform Tables
   ####################################
@@ -508,3 +542,9 @@ Outputs:
     Value: !Ref ProfilesTable
     Export:
       Name: !Sub "${AWS::StackName}-ProfilesTable"
+
+  UserProfilesTableName:
+    Description: Name of the UserProfiles DynamoDB table
+    Value: !Ref UserProfilesTable
+    Export:
+      Name: !Sub "${AWS::StackName}-UserProfilesTable"
