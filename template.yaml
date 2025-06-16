@@ -57,7 +57,8 @@ Resources:
           # RapidAPI key will be retrieved at runtime from Secrets Manager
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           USER_POOL_ID: !Ref UserPoolIdParameter
-          IDENTITY_POOL_ID: !Ref IdentityPoolIdParameter
+          # The identity pool ID will be retrieved at runtime from SSM Parameter Store
+          IDENTITY_POOL_PARAM_NAME: !Sub "/myai4/${Environment}/cognito/identity-pool-id"
           PROFILES_TABLE: !Ref ProfilesTable
           SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
           SERVICE_PREFERENCES_TABLE: !Ref ServicePreferencesTable

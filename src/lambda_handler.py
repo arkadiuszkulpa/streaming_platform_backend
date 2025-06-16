@@ -14,6 +14,7 @@ from botocore.exceptions import ClientError
 
 # Initialize AWS resources
 dynamodb = boto3.resource('dynamodb')
+ssm = boto3.client('ssm')
 
 # Environment variables - populated from CloudFormation template
 PROFILES_TABLE = os.environ.get('PROFILES_TABLE')  # This now points to the ProfilesTable resource
@@ -24,6 +25,8 @@ FAMILY_GROUPS_TABLE = os.environ.get('FAMILY_GROUPS_TABLE')
 MOVIES_TABLE = os.environ.get('MOVIES_TABLE')
 WATCHLISTS_TABLE = os.environ.get('WATCHLISTS_TABLE')
 WATCH_HISTORY_TABLE = os.environ.get('WATCH_HISTORY_TABLE')
+# SSM Parameter path for Identity Pool ID
+IDENTITY_POOL_PARAM_NAME = os.environ.get('IDENTITY_POOL_PARAM_NAME')
 
 # Mock RapidAPI key function - remove when integrating
 def get_rapidapi_key():
@@ -64,17 +67,17 @@ def handle_test(data: Dict[str, Any]) -> Dict[str, Any]:
     messages = []
     # Check for required environment variables
     for env_var in [
-        'USER_PROFILES_TABLE', 'SUBSCRIPTIONS_TABLE', 'SERVICE_PREFERENCES_TABLE',
+        'PROFILES_TABLE', 'SUBSCRIPTIONS_TABLE', 'SERVICE_PREFERENCES_TABLE',
         'USER_USAGE_TABLE', 'FAMILY_GROUPS_TABLE', 'MOVIES_TABLE',
-        'WATCHLISTS_TABLE', 'WATCH_HISTORY_TABLE', 'STREAMING_PROFILES_TABLE',
-        'RAPIDAPI_SECRET_NAME', 'ENVIRONMENT'
+        'WATCHLISTS_TABLE', 'WATCH_HISTORY_TABLE', 
+        'RAPIDAPI_SECRET_NAME', 'ENVIRONMENT', 'IDENTITY_POOL_PARAM_NAME'
     ]:
         if not os.environ.get(env_var):
             warnings.append(f"Environment variable {env_var} is not set")
     
     # Check all tables
     for table_name, table_var in {
-        'USER_PROFILES_TABLE': USER_PROFILES_TABLE,
+        'PROFILES_TABLE': PROFILES_TABLE,
         'SUBSCRIPTIONS_TABLE': SUBSCRIPTIONS_TABLE,
         'SERVICE_PREFERENCES_TABLE': SERVICE_PREFERENCES_TABLE,
         'USER_USAGE_TABLE': USER_USAGE_TABLE,
@@ -82,7 +85,6 @@ def handle_test(data: Dict[str, Any]) -> Dict[str, Any]:
         'MOVIES_TABLE': MOVIES_TABLE,
         'WATCHLISTS_TABLE': WATCHLISTS_TABLE,
         'WATCH_HISTORY_TABLE': WATCH_HISTORY_TABLE,
-        'PROFILES_TABLE': PROFILES_TABLE,
     }.items():
         if table_var:
             try:
@@ -102,16 +104,36 @@ def handle_test(data: Dict[str, Any]) -> Dict[str, Any]:
             except Exception as e:
                 table_status[table_name] = {
                     'status': 'error',
-                    'message': str(e),
-                    'name': table_var
+                    'name': table_var,
+                    'error': str(e)
                 }
-                warnings.append(f"Cannot access table {table_var}: {str(e)}")
         else:
             table_status[table_name] = {
-                'status': 'not_configured',
-                'name': None
+                'status': 'missing',
+                'name': 'Table name not configured'
             }
-            messages.append(f"Table {table_name} is not configured")
+
+    # Check SSM Parameter access
+    parameter_status = {}
+    if IDENTITY_POOL_PARAM_NAME:
+        try:
+            identity_pool_id = get_identity_pool_id()
+            parameter_status['IDENTITY_POOL_ID'] = {
+                'status': 'accessible',
+                'parameter_name': IDENTITY_POOL_PARAM_NAME,
+                'value': identity_pool_id
+            }
+        except Exception as e:
+            parameter_status['IDENTITY_POOL_ID'] = {
+                'status': 'error',
+                'parameter_name': IDENTITY_POOL_PARAM_NAME,
+                'error': str(e)
+            }
+    else:
+        parameter_status['IDENTITY_POOL_ID'] = {
+            'status': 'missing',
+            'parameter_name': 'Parameter path not configured'
+        }
     
     # Check for RapidAPI key
     try:
@@ -128,6 +150,7 @@ def handle_test(data: Dict[str, Any]) -> Dict[str, Any]:
         'timestamp': datetime.utcnow().isoformat(),
         'request_time': datetime.utcnow().isoformat(),
         'data_received': data,
+        'parameter_status': parameter_status,
         'function': function_name,
         'lambda_name': function_name,
         'region': os.environ.get('AWS_REGION', 'unknown'),
@@ -136,6 +159,7 @@ def handle_test(data: Dict[str, Any]) -> Dict[str, Any]:
         'execution_environment': execution_env,
         'environment': environment,
         'tables': table_status,
+        'parameters': parameter_status,
         'api_version': '1.0.0',
         'warnings': warnings,
         'messages': messages
@@ -320,3 +344,15 @@ def handle_remove_family_member(data: Dict[str, Any]) -> Dict[str, Any]:
     """Handler for removeFamilyMember operation"""
     # TODO: Implement this handler
     return {'message': 'Not yet implemented', 'operation': 'removeFamilyMember', 'data': data}
+
+def get_identity_pool_id():
+    """Retrieve Identity Pool ID from SSM Parameter Store"""
+    if not IDENTITY_POOL_PARAM_NAME:
+        raise ValueError("IDENTITY_POOL_PARAM_NAME environment variable not set")
+    
+    try:
+        response = ssm.get_parameter(Name=IDENTITY_POOL_PARAM_NAME)
+        return response['Parameter']['Value']
+    except ClientError as error:
+        print(f"Error retrieving parameter {IDENTITY_POOL_PARAM_NAME}: {str(error)}")
+        raise error
