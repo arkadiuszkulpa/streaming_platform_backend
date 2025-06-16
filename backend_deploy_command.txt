@@ -1,3 +1,6 @@
+### MyAI4 Backend Deployment Commands
+
+## Initial Deployment (First Time)
 # Local development deployment with packaging
 sam build
 sam package --s3-bucket myai4-deployment-artifacts --output-template-file packaged-template.yaml
@@ -9,14 +12,27 @@ sam deploy --config-env dev --config-file samconfig.toml
 # Quick local deployment (works locally but not in CodePipeline)
 sam deploy --template-file template.yaml --stack-name myai4-backend-dev --parameter-overrides Environment=dev --capabilities CAPABILITY_NAMED_IAM --resolve-s3
 
+# Create Secrets Manager secret for RapidAPI key (only needed once)
+aws secretsmanager create-secret --name "myai4/rapidapi/keys/" --secret-string "{\"rapidapikey\":\"your-api-key-here\"}" --description "RapidAPI Key for MyAI4 ecosystem services"
+
+# Update secret if needed
+aws secretsmanager update-secret --secret-id "myai4/rapidapi/keys/" --secret-string "{\"rapidapikey\":\"your-updated-api-key-here\"}"
+
+## Quick Lambda Update (After Deployment)
+# Update Lambda code only (much faster than full deployment)
+# Make sure to use the correct stack name
+cd c:\Projects\streaming_platform_backend; .\refresh-lambda_handler.ps1 -dev myai4-backend-dev -prod myai4-backend-prod
+
+## Test API Connectivity
+# Get API URL from CloudFormation outputs
+aws cloudformation describe-stacks --stack-name myai4-backend-dev --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" --output text
+
+# Test with PowerShell (full diagnostic information)
+$apiUrl = aws cloudformation describe-stacks --stack-name myai4-backend-dev --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" --output text
+Invoke-RestMethod -Uri "$apiUrl`?operation=test" -Method GET | ConvertTo-Json -Depth 10
+
 # Delete the stack if needed
 aws cloudformation delete-stack --stack-name myai4-backend-dev
 
-# Create SSM parameter for RapidAPI key
-aws ssm put-parameter --name "/myai4/dev/apis/rapidapi-key" --value "c25b0c052amshd0a4b0025e57806p184f7bjsne9803d030862" --type "SecureString" --description "RapidAPI Key for MyAI4 ecosystem services"
-
 # Create S3 bucket for deployment artifacts (one-time setup)
 aws s3 mb s3://myai4-deployment-artifacts
-
-# Update Lambda easily
-cd c:\Projects\streaming_platform_backend; .\refresh-lambda_handler.ps1

@@ -45,18 +45,17 @@ Resources:
 
   ####################################
   # Lambda Functions
-  ####################################
-  CentralizedApiFunction:
+  ####################################  CentralizedApiFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub "centralized_api-${AWS::StackName}"
+      FunctionName: !Sub "centralised-api-${AWS::StackName}"
       CodeUri: src/
       Handler: lambda_handler.lambda_handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Environment:
         Variables:
           # RapidAPI key will be retrieved at runtime from Secrets Manager
-          RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/oauth"
+          RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           USER_POOL_ID: !Ref UserPoolIdParameter
           IDENTITY_POOL_ID: !Ref IdentityPoolIdParameter
           USER_PROFILES_TABLE: !Ref UserProfilesTable
@@ -67,7 +66,7 @@ Resources:
           MOVIES_TABLE: !Ref MoviesTable
           WATCHLISTS_TABLE: !Ref WatchlistsTable
           WATCH_HISTORY_TABLE: !Ref WatchHistoryTable
-          STREAMING_PROFILES_TABLE: !Ref StreamingProfilesTable
+          STREAMING_PROFILES_TABLE: !Ref ProfilesTable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
       Events:
         ApiEvent:
@@ -120,7 +119,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - secretsmanager:GetSecretValue
-                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:myai4/rapidapi/keys/oauth*"
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:myai4/rapidapi/keys/*"
       Tags:
         - Key: Environment
           Value: !Ref Environment

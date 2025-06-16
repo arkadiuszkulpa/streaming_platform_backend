@@ -6,6 +6,20 @@ $region = "eu-west-2"
 $lambdaSourceFile = "src/lambda_handler.py"
 $zipFile = "lambda_handler.zip"
 
+# Stack names - set these to match your actual CloudFormation stack names
+$devStackName = "myai4-backend-dev"  # Default, change if needed
+$prodStackName = "myai4-backend-prod"  # Default, change if needed
+
+# Parse command-line arguments
+param(
+    [string]$dev = $devStackName,
+    [string]$prod = $prodStackName
+)
+
+# Update stack names if provided as arguments
+$devStackName = $dev
+$prodStackName = $prod
+
 Write-Host "Starting Lambda handler code refresh..."
 
 # Get AWS Account ID
@@ -46,8 +60,12 @@ Write-Host "Uploaded to S3"
 Write-Host "Updating Lambda function code..."
 
 # Set your Lambda function names here
-$prodFunctionName = "myai4-infrastructure-prod-centralised-api"
-$devFunctionName = "myai4-infrastructure-dev-centralised-api"
+$prodFunctionName = "centralised-api-$prodStackName"
+$devFunctionName = "centralised-api-$devStackName"
+
+Write-Host "Using Lambda function names:"
+Write-Host "   Dev: $devFunctionName"
+Write-Host "   Prod: $prodFunctionName"
 
 # Update dev function if it exists
 try {
