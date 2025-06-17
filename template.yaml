@@ -58,10 +58,10 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           USER_POOL_ID: !Ref UserPoolIdParameter
           # The identity pool ID will be retrieved at runtime from SSM Parameter Store
-          IDENTITY_POOL_PARAM_NAME: !Sub "/myai4/${Environment}/cognito/identity-pool-id"
-          # Import AccountTable from infrastructure stack
-          ACCOUNTS_TABLE: !ImportValue 
-            !Sub "${AWS::StackName}-AccountTable"
+          IDENTITY_POOL_PARAM_NAME: !Sub "/myai4/${Environment}/cognito/identity-pool-id"          # Import AccountTable from infrastructure stack
+          ACCOUNTS_TABLE:
+            Fn::ImportValue:
+              Fn::Sub: "${AWS::StackName}-AccountTable"
           PROFILES_TABLE: !Ref ProfilesTable
           SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
           SERVICE_PREFERENCES_TABLE: !Ref ServicePreferencesTable
@@ -518,6 +518,9 @@ Outputs:
 
   AccountsTableName:
     Description: Name of the Accounts DynamoDB table (imported from infrastructure stack)
-    Value: !ImportValue !Sub "${AWS::StackName}-AccountTable"
+    Value:
+      Fn::ImportValue:
+        Fn::Sub: "${AWS::StackName}-AccountTable"
     Export:
-      Name: !Sub "${AWS::StackName}-AccountsTableName"
+      Name:
+        Fn::Sub: "${AWS::StackName}-AccountsTableName"
