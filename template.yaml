@@ -59,6 +59,7 @@ Resources:
           USER_POOL_ID: !Ref UserPoolIdParameter
           # The identity pool ID will be retrieved at runtime from SSM Parameter Store
           IDENTITY_POOL_PARAM_NAME: !Sub "/myai4/${Environment}/cognito/identity-pool-id"
+          ACCOUNTS_TABLE: !Ref AccountsTable  # Added table for user accounts
           PROFILES_TABLE: !Ref ProfilesTable
           SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
           SERVICE_PREFERENCES_TABLE: !Ref ServicePreferencesTable
@@ -425,17 +426,19 @@ Resources:
       TableName: !Sub "myai4-profiles-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: profileId
-          AttributeType: S
         - AttributeName: accountId
           AttributeType: S
-      KeySchema:
         - AttributeName: profileId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: accountId
           KeyType: HASH
+        - AttributeName: profileId
+          KeyType: RANGE
       GlobalSecondaryIndexes:
-        - IndexName: AccountIndex
+        - IndexName: ProfileIdIndex
           KeySchema:
-            - AttributeName: accountId
+            - AttributeName: profileId
               KeyType: HASH
           Projection:
             ProjectionType: ALL
@@ -450,6 +453,40 @@ Resources:
           Value: MyAI4-Ecosystem
         - Key: DataType
           Value: Profiles
+
+  # TABLE 10: AccountsTable - User accounts across services 
+  AccountsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: !Sub "myai4-accounts-${AWS::StackName}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: EmailIndex
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: MyAI4-Ecosystem
+        - Key: DataType
+          Value: Accounts
 
 ####################################
 # Outputs
@@ -508,3 +545,9 @@ Outputs:
     Value: !Ref ProfilesTable
     Export:
       Name: !Sub "${AWS::StackName}-ProfilesTable"
+
+  AccountsTableName:
+    Description: Name of the Accounts DynamoDB table
+    Value: !Ref AccountsTable
+    Export:
+      Name: !Sub "${AWS::StackName}-AccountsTable"

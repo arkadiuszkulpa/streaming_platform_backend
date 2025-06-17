@@ -251,9 +251,68 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 # Placeholder handler functions - to be implemented
 def handle_get_user_profile(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Handler for getUserProfile operation"""
-    # TODO: Implement this handler
-    return {'message': 'Not yet implemented', 'operation': 'getUserProfile', 'data': data}
+    """
+    Handler for getUserProfile operation
+    Retrieves a single user's profile from DynamoDB
+
+    Expected data:
+    - userId (required): The ID of the user
+    - profileId (required): The ID of the profile to retrieve
+    """
+    # Validate required parameters
+    if not data.get('userId'):
+        return {'error': 'userId is required', 'statusCode': 400}
+    if not data.get('profileId'):
+        return {'error': 'profileId is required', 'statusCode': 400}
+    
+    userId = data['userId']
+    profileId = data['profileId']
+    
+    if not PROFILES_TABLE:
+        return {'error': 'Profiles table not configured', 'statusCode': 500}
+    
+    try:
+        table = dynamodb.Table(PROFILES_TABLE)
+        
+        # Query for the specific profile
+        response = table.get_item(
+            Key={
+                'userId': userId,
+                'profileId': profileId
+            }
+        )
+        
+        # Check if profile exists
+        if 'Item' not in response:
+            return {
+                'statusCode': 404,
+                'error': 'Profile not found',
+                'userId': userId,
+                'profileId': profileId
+            }
+        
+        profile = response['Item']
+        
+        return {
+            'statusCode': 200,
+            'profile': profile,
+            'timestamp': datetime.utcnow().isoformat()
+        }
+    
+    except ClientError as e:
+        print(f"Error retrieving user profile: {str(e)}")
+        return {
+            'error': 'Failed to retrieve profile',
+            'details': str(e),
+            'statusCode': 500
+        }
+    except Exception as e:
+        print(f"Unexpected error in getUserProfile: {str(e)}")
+        return {
+            'error': 'An unexpected error occurred',
+            'details': str(e),
+            'statusCode': 500
+        }
 
 def handle_create_user_profile(data: Dict[str, Any]) -> Dict[str, Any]:
     """Handler for createUserProfile operation"""
@@ -301,58 +360,250 @@ def handle_record_watch(data: Dict[str, Any]) -> Dict[str, Any]:
     return {'message': 'Not yet implemented', 'operation': 'recordWatch', 'data': data}
 
 def handle_get_profiles(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Handler for getProfiles operation"""
-    # TODO: Implement this handler
-    return {'message': 'Not yet implemented', 'operation': 'getProfiles', 'data': data}
-
-def handle_create_profile(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Handler for createProfile operation"""
-    # TODO: Implement this handler
-    return {'message': 'Not yet implemented', 'operation': 'createProfile', 'data': data}
-
-def handle_update_profile(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Handler for updateProfile operation"""
-    # TODO: Implement this handler
-    return {'message': 'Not yet implemented', 'operation': 'updateProfile', 'data': data}
-
-def handle_delete_profile(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Handler for deleteProfile operation"""
-    # TODO: Implement this handler
-    return {'message': 'Not yet implemented', 'operation': 'deleteProfile', 'data': data}
-
-def handle_get_family_group(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Handler for getFamilyGroup operation"""
-    # TODO: Implement this handler
-    return {'message': 'Not yet implemented', 'operation': 'getFamilyGroup', 'data': data}
-
-def handle_create_family_group(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Handler for createFamilyGroup operation"""
-    # TODO: Implement this handler
-    return {'message': 'Not yet implemented', 'operation': 'createFamilyGroup', 'data': data}
-
-def handle_update_family_group(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Handler for updateFamilyGroup operation"""
-    # TODO: Implement this handler
-    return {'message': 'Not yet implemented', 'operation': 'updateFamilyGroup', 'data': data}
-
-def handle_add_family_member(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Handler for addFamilyMember operation"""
-    # TODO: Implement this handler
-    return {'message': 'Not yet implemented', 'operation': 'addFamilyMember', 'data': data}
-
-def handle_remove_family_member(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Handler for removeFamilyMember operation"""
-    # TODO: Implement this handler
-    return {'message': 'Not yet implemented', 'operation': 'removeFamilyMember', 'data': data}
-
-def get_identity_pool_id():
-    """Retrieve Identity Pool ID from SSM Parameter Store"""
-    if not IDENTITY_POOL_PARAM_NAME:
-        raise ValueError("IDENTITY_POOL_PARAM_NAME environment variable not set")
+    """
+    Handler for getProfiles operation
+    Retrieves all profiles associated with a specific user account
+    
+    Expected data:
+    - userId (required): The ID of the user whose profiles should be retrieved
+    """
+    # Validate required parameters
+    if not data.get('userId'):
+        return {'error': 'userId is required', 'statusCode': 400}
+    
+    userId = data['userId']
+    
+    if not PROFILES_TABLE:
+        return {'error': 'Profiles table not configured', 'statusCode': 500}
     
     try:
-        response = ssm.get_parameter(Name=IDENTITY_POOL_PARAM_NAME)
-        return response['Parameter']['Value']
-    except ClientError as error:
-        print(f"Error retrieving parameter {IDENTITY_POOL_PARAM_NAME}: {str(error)}")
-        raise error
+        table = dynamodb.Table(PROFILES_TABLE)
+        
+        # Query for all profiles belonging to this user
+        # Assuming the table has a GSI on userId, or userId is the partition key
+        response = table.query(
+            KeyConditionExpression=boto3.dynamodb.conditions.Key('userId').eq(userId)
+        )
+        
+        profiles = response.get('Items', [])
+        
+        # Handle pagination if there are more results
+        while 'LastEvaluatedKey' in response:
+            response = table.query(
+                KeyConditionExpression=boto3.dynamodb.conditions.Key('userId').eq(userId),
+                ExclusiveStartKey=response['LastEvaluatedKey']
+            )
+            profiles.extend(response.get('Items', []))
+        
+        return {
+            'statusCode': 200,
+            'profiles': profiles,
+            'count': len(profiles),
+            'timestamp': datetime.utcnow().isoformat()
+        }
+    
+    except ClientError as e:
+        print(f"Error retrieving user profiles: {str(e)}")
+        return {
+            'error': 'Failed to retrieve profiles',
+            'details': str(e),
+            'statusCode': 500
+        }
+    except Exception as e:
+        print(f"Unexpected error in getProfiles: {str(e)}")
+        return {
+            'error': 'An unexpected error occurred',
+            'details': str(e),
+            'statusCode': 500
+        }
+
+def handle_create_profile(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handler for createProfile operation
+    Creates a new profile for a user
+    
+    Expected data:
+    - userId (required): The ID of the user
+    - profileName (required): The name of the profile
+    - isChild (optional): Boolean indicating if this is a child profile
+    - preferences (optional): Dictionary of viewing preferences
+    - avatarUrl (optional): URL to profile avatar image
+    """
+    # Validate required parameters
+    if not data.get('userId'):
+        return {'error': 'userId is required', 'statusCode': 400}
+    if not data.get('profileName'):
+        return {'error': 'profileName is required', 'statusCode': 400}
+    
+    userId = data['userId']
+    
+    if not PROFILES_TABLE:
+        return {'error': 'Profiles table not configured', 'statusCode': 500}
+    
+    try:
+        table = dynamodb.Table(PROFILES_TABLE)
+        
+        # Generate a unique profileId
+        profileId = f"profile_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{userId[-6:]}"
+        
+        # Prepare profile item
+        profile_item = {
+            'userId': userId,
+            'profileId': profileId,
+            'profileName': data['profileName'],
+            'isChild': data.get('isChild', False),
+            'preferences': data.get('preferences', {}),
+            'avatarUrl': data.get('avatarUrl', ''),
+            'createdAt': datetime.utcnow().isoformat(),
+            'updatedAt': datetime.utcnow().isoformat()
+        }
+        
+        # Add the profile to DynamoDB
+        table.put_item(Item=profile_item)
+        
+        return {
+            'statusCode': 201,  # Created
+            'profile': profile_item,
+            'message': 'Profile created successfully',
+            'timestamp': datetime.utcnow().isoformat()
+        }
+    
+    except ClientError as e:
+        print(f"Error creating user profile: {str(e)}")
+        return {
+            'error': 'Failed to create profile',
+            'details': str(e),
+            'statusCode': 500
+        }
+    except Exception as e:
+        print(f"Unexpected error in createProfile: {str(e)}")
+        return {
+            'error': 'An unexpected error occurred',
+            'details': str(e),
+            'statusCode': 500
+        }
+
+def handle_update_profile(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handler for updateProfile operation
+    Updates an existing profile for a user
+    
+    Expected data:
+    - userId (required): The ID of the user
+    - profileId (required): The ID of the profile to update
+    - profileName (optional): The updated name of the profile
+    - isChild (optional): Boolean indicating if this is a child profile
+    - preferences (optional): Dictionary of updated viewing preferences
+    - avatarUrl (optional): URL to profile avatar image
+    """
+    # Validate required parameters
+    if not data.get('userId'):
+        return {'error': 'userId is required', 'statusCode': 400}
+    if not data.get('profileId'):
+        return {'error': 'profileId is required', 'statusCode': 400}
+    
+    userId = data['userId']
+    profileId = data['profileId']
+    
+    if not PROFILES_TABLE:
+        return {'error': 'Profiles table not configured', 'statusCode': 500}
+    
+    try:
+        table = dynamodb.Table(PROFILES_TABLE)
+        
+        # First check if the profile exists
+        response = table.get_item(
+            Key={
+                'userId': userId,
+                'profileId': profileId
+            }
+        )
+        
+        if 'Item' not in response:
+            return {
+                'statusCode': 404,
+                'error': 'Profile not found',
+                'userId': userId,
+                'profileId': profileId
+            }
+        
+        # Build update expression
+        update_expressions = []
+        expression_attribute_values = {}
+        expression_attribute_names = {}
+        
+        # Update profileName if provided
+        if 'profileName' in data:
+            update_expressions.append('#profileName = :profileName')
+            expression_attribute_names['#profileName'] = 'profileName'
+            expression_attribute_values[':profileName'] = data['profileName']
+            
+        # Update isChild if provided
+        if 'isChild' in data:
+            update_expressions.append('#isChild = :isChild')
+            expression_attribute_names['#isChild'] = 'isChild'
+            expression_attribute_values[':isChild'] = data['isChild']
+            
+        # Update preferences if provided
+        if 'preferences' in data:
+            update_expressions.append('#preferences = :preferences')
+            expression_attribute_names['#preferences'] = 'preferences'
+            expression_attribute_values[':preferences'] = data['preferences']
+            
+        # Update avatarUrl if provided
+        if 'avatarUrl' in data:
+            update_expressions.append('#avatarUrl = :avatarUrl')
+            expression_attribute_names['#avatarUrl'] = 'avatarUrl'
+            expression_attribute_values[':avatarUrl'] = data['avatarUrl']
+        
+        # Always update the updatedAt timestamp
+        update_expressions.append('#updatedAt = :updatedAt')
+        expression_attribute_names['#updatedAt'] = 'updatedAt'
+        expression_attribute_values[':updatedAt'] = datetime.utcnow().isoformat()
+        
+        # If there's nothing to update, return early
+        if len(update_expressions) <= 1:  # Only has updatedAt
+            return {
+                'statusCode': 400,
+                'error': 'No fields to update provided',
+                'userId': userId,
+                'profileId': profileId
+            }
+        
+        # Construct the update expression
+        update_expression = 'SET ' + ', '.join(update_expressions)
+        
+        # Update the profile
+        response = table.update_item(
+            Key={
+                'userId': userId,
+                'profileId': profileId
+            },
+            UpdateExpression=update_expression,
+            ExpressionAttributeNames=expression_attribute_names,
+            ExpressionAttributeValues=expression_attribute_values,
+            ReturnValues='ALL_NEW'
+        )
+        
+        # Return the updated profile
+        return {
+            'statusCode': 200,
+            'profile': response.get('Attributes', {}),
+            'message': 'Profile updated successfully',
+            'timestamp': datetime.utcnow().isoformat()
+        }
+    
+    except ClientError as e:
+        print(f"Error updating user profile: {str(e)}")
+        return {
+            'error': 'Failed to update profile',
+            'details': str(e),
+            'statusCode': 500
+        }
+    except Exception as e:
+        print(f"Unexpected error in updateProfile: {str(e)}")
+        return {
+            'error': 'An unexpected error occurred',
+            'details': str(e),
+            'statusCode': 500
+        }
