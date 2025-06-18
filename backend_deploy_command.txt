@@ -36,3 +36,9 @@ aws cloudformation delete-stack --stack-name myai4-backend-dev
 
 # Create S3 bucket for deployment artifacts (one-time setup)
 aws s3 mb s3://myai4-deployment-artifacts
+
+# From powershell script to check GSI status
+.\check-gsi-changes.ps1 -Environment dev -Region eu-west-2
+
+# From PowerShell script to deploy GSI changes
+.\deploy-gsi-changes.ps1 -Environment dev -Region eu-west-2
