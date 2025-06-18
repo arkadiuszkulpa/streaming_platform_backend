@@ -19,6 +19,8 @@ phases:
       - echo "Environment is set to ${ENVIRONMENT:-dev}"
       - export STACK_NAME="myai4-backend-${ENVIRONMENT:-dev}"
       - echo "Stack name will be $STACK_NAME"
+      - export INFRA_STACK_NAME="myai4-infrastructure-${ENVIRONMENT:-dev}"
+      - echo "Infra stack name will be $INFRA_STACK_NAME"
 
   build:
     commands:
@@ -29,7 +31,7 @@ phases:
       - echo Deploying the packaged application...
       - |
         set -e
-        sam deploy --template-file packaged-template.yaml --stack-name $STACK_NAME --parameter-overrides Environment=${ENVIRONMENT:-dev} --capabilities CAPABILITY_NAMED_IAM --no-confirm-changeset --region $AWS_DEFAULT_REGION
+        sam deploy --template-file packaged-template.yaml --stack-name $STACK_NAME --parameter-overrides Environment=${ENVIRONMENT:-dev} InfraStackName=$INFRA_STACK_NAME --capabilities CAPABILITY_NAMED_IAM --no-confirm-changeset --region $AWS_DEFAULT_REGION
       
   post_build:
     commands:
