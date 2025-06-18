@@ -10,6 +10,11 @@ Parameters:
       - dev
       - prod
     Default: dev
+    
+  InfraStackName:
+    Type: String
+    Description: Name of the infrastructure stack that contains the AccountTable
+    Default: myai4-infrastructure-dev
 
   # REMOVED: RapidApiKeyParameter as direct parameter
   # Now retrieved from SSM Parameter Store
@@ -57,11 +62,12 @@ Resources:
           # RapidAPI key will be retrieved at runtime from Secrets Manager
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           USER_POOL_ID: !Ref UserPoolIdParameter
-          # The identity pool ID will be retrieved at runtime from SSM Parameter Store
-          IDENTITY_POOL_PARAM_NAME: !Sub "/myai4/${Environment}/cognito/identity-pool-id"          # Import AccountTable from infrastructure stack
+          # The identity pool ID will be retrieved at runtime from SSM Parameter Store          
+          IDENTITY_POOL_PARAM_NAME: !Sub "/myai4/${Environment}/cognito/identity-pool-id"
+          # Import AccountTable from infrastructure stack
           ACCOUNTS_TABLE:
             Fn::ImportValue:
-              Fn::Sub: "${AWS::StackName}-AccountTable"
+              Fn::Sub: "${InfraStackName}-AccountTable"
           PROFILES_TABLE: !Ref ProfilesTable
           SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
           SERVICE_PREFERENCES_TABLE: !Ref ServicePreferencesTable
@@ -515,12 +521,4 @@ Outputs:
     Value: !Ref ProfilesTable
     Export:
       Name: !Sub "${AWS::StackName}-ProfilesTable"
-
-  AccountsTableName:
-    Description: Name of the Accounts DynamoDB table (imported from infrastructure stack)
-    Value:
-      Fn::ImportValue:
-        Fn::Sub: "${AWS::StackName}-AccountTable"
-    Export:
-      Name:
-        Fn::Sub: "${AWS::StackName}-AccountsTableName"
+  # Removed AccountsTableName output - should be imported directly from infrastructure stack
