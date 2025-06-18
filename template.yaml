@@ -10,6 +10,11 @@ Parameters:
       - dev
       - prod
     Default: dev
+    
+  InfraStackName:
+    Type: String
+    Description: Name of the infrastructure stack that contains the AccountTable
+    Default: myai4-infrastructure-dev
 
   # REMOVED: RapidApiKeyParameter as direct parameter
   # Now retrieved from SSM Parameter Store
@@ -57,8 +62,12 @@ Resources:
           # RapidAPI key will be retrieved at runtime from Secrets Manager
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           USER_POOL_ID: !Ref UserPoolIdParameter
-          # The identity pool ID will be retrieved at runtime from SSM Parameter Store
+          # The identity pool ID will be retrieved at runtime from SSM Parameter Store          
           IDENTITY_POOL_PARAM_NAME: !Sub "/myai4/${Environment}/cognito/identity-pool-id"
+          # Import AccountTable from infrastructure stack
+          ACCOUNTS_TABLE:
+            Fn::ImportValue:
+              Fn::Sub: "${InfraStackName}-AccountTable"
           PROFILES_TABLE: !Ref ProfilesTable
           SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
           SERVICE_PREFERENCES_TABLE: !Ref ServicePreferencesTable
@@ -425,17 +434,19 @@ Resources:
       TableName: !Sub "myai4-profiles-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: profileId
-          AttributeType: S
         - AttributeName: accountId
           AttributeType: S
-      KeySchema:
         - AttributeName: profileId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: accountId
           KeyType: HASH
+        - AttributeName: profileId
+          KeyType: RANGE
       GlobalSecondaryIndexes:
-        - IndexName: AccountIndex
+        - IndexName: ProfileIdIndex
           KeySchema:
-            - AttributeName: accountId
+            - AttributeName: profileId
               KeyType: HASH
           Projection:
             ProjectionType: ALL
@@ -450,6 +461,8 @@ Resources:
           Value: MyAI4-Ecosystem
         - Key: DataType
           Value: Profiles
+  # TABLE 10: AccountsTable - Now managed by infrastructure stack
+  # This table has been moved to the infrastructure stack since it's used by the Cognito triggers
 
 ####################################
 # Outputs
@@ -508,3 +521,4 @@ Outputs:
     Value: !Ref ProfilesTable
     Export:
       Name: !Sub "${AWS::StackName}-ProfilesTable"
+  # Removed AccountsTableName output - should be imported directly from infrastructure stack
