@@ -151,14 +151,14 @@ Resources:
       TableName: !Sub "myai4-subscriptions-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: userId
+        - AttributeName: accountId
           AttributeType: S
         - AttributeName: subscriptionId
           AttributeType: S
         - AttributeName: serviceType
           AttributeType: S
       KeySchema:
-        - AttributeName: userId
+        - AttributeName: accountId
           KeyType: HASH
         - AttributeName: subscriptionId
           KeyType: RANGE
@@ -167,7 +167,7 @@ Resources:
           KeySchema:
             - AttributeName: serviceType
               KeyType: HASH
-            - AttributeName: userId
+            - AttributeName: accountId
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
@@ -191,12 +191,12 @@ Resources:
       TableName: !Sub "myai4-service-preferences-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: userId
+        - AttributeName: accountId
           AttributeType: S
         - AttributeName: serviceType
           AttributeType: S
       KeySchema:
-        - AttributeName: userId
+        - AttributeName: accountId
           KeyType: HASH
         - AttributeName: serviceType
           KeyType: RANGE
@@ -220,14 +220,14 @@ Resources:
       TableName: !Sub "myai4-user-usage-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: userId
+        - AttributeName: accountId
           AttributeType: S
         - AttributeName: timestamp
           AttributeType: S
         - AttributeName: serviceType
           AttributeType: S
       KeySchema:
-        - AttributeName: userId
+        - AttributeName: accountId
           KeyType: HASH
         - AttributeName: timestamp
           KeyType: RANGE
@@ -262,15 +262,15 @@ Resources:
       AttributeDefinitions:
         - AttributeName: familyId
           AttributeType: S
-        - AttributeName: parentUserId
+        - AttributeName: parentAccountId
           AttributeType: S
       KeySchema:
         - AttributeName: familyId
           KeyType: HASH
       GlobalSecondaryIndexes:
-        - IndexName: ParentUserIndex
+        - IndexName: ParentAccountIndex
           KeySchema:
-            - AttributeName: parentUserId
+            - AttributeName: parentAccountId
               KeyType: HASH
           Projection:
             ProjectionType: ALL
@@ -344,14 +344,14 @@ Resources:
       TableName: !Sub "myai4-watchlists-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: userId
+        - AttributeName: accountId
           AttributeType: S
         - AttributeName: movieId
           AttributeType: S
         - AttributeName: profileId
           AttributeType: S
       KeySchema:
-        - AttributeName: userId
+        - AttributeName: accountId
           KeyType: HASH
         - AttributeName: movieId
           KeyType: RANGE
@@ -384,7 +384,7 @@ Resources:
       TableName: !Sub "myai4-watch-history-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: userId
+        - AttributeName: accountId
           AttributeType: S
         - AttributeName: watchedAt
           AttributeType: S
@@ -393,7 +393,7 @@ Resources:
         - AttributeName: movieId
           AttributeType: S
       KeySchema:
-        - AttributeName: userId
+        - AttributeName: accountId
           KeyType: HASH
         - AttributeName: watchedAt
           KeyType: RANGE
