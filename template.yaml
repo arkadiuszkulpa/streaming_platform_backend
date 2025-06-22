@@ -14,7 +14,7 @@ Parameters:
   InfraStackName:
     Type: String
     Description: Name of the infrastructure stack that contains the AccountTable
-    Default: myai4-infrastructure-dev
+    Default: !Sub "myai4-infrastructure-${Environment}"
 
   # REMOVED: RapidApiKeyParameter as direct parameter
   # Now retrieved from SSM Parameter Store
@@ -30,61 +30,9 @@ Globals:
 
 Resources:
   ####################################
-  # SSM Parameters
+  # API Gateway
   ####################################
-  UserPoolIdParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub "/myai4/${Environment}/cognito/user-pool-id"
-      Type: String
-      Value: !Sub "${AWS::StackName}-user-pool-id"
-      Description: User Pool ID for MyAI4 services
-
-  IdentityPoolIdParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub "/myai4/${Environment}/cognito/identity-pool-id"
-      Type: String
-      Value: !Sub "${AWS::StackName}-identity-pool-id"
-      Description: Identity Pool ID for MyAI4 services
-
-  ####################################
-  # Lambda Functions
-  ####################################  CentralizedApiFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub "centralised-api-${AWS::StackName}"
-      CodeUri: src/
-      Handler: lambda_handler.lambda_handler
-      Role: !GetAtt LambdaExecutionRole.Arn
-      Environment:
-        Variables:
-          # RapidAPI key will be retrieved at runtime from Secrets Manager
-          RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
-          USER_POOL_ID: !Ref UserPoolIdParameter
-          # The identity pool ID will be retrieved at runtime from SSM Parameter Store          
-          IDENTITY_POOL_PARAM_NAME: !Sub "/myai4/${Environment}/cognito/identity-pool-id"
-          # Import AccountTable from infrastructure stack
-          ACCOUNTS_TABLE:
-            Fn::ImportValue:
-              Fn::Sub: "${InfraStackName}-AccountTable"
-          PROFILES_TABLE: !Ref ProfilesTable
-          SUBSCRIPTIONS_TABLE: !Ref SubscriptionsTable
-          SERVICE_PREFERENCES_TABLE: !Ref ServicePreferencesTable
-          USER_USAGE_TABLE: !Ref UserUsageTable
-          FAMILY_GROUPS_TABLE: !Ref FamilyGroupsTable
-          MOVIES_TABLE: !Ref MoviesTable
-          WATCHLISTS_TABLE: !Ref WatchlistsTable
-          WATCH_HISTORY_TABLE: !Ref WatchHistoryTable
-          ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
-      Events:
-        ApiEvent:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ApiGateway
-            Path: /centralized
-            Method: ANY
-
+  
   ####################################
   # API Gateway
   ####################################
@@ -136,6 +84,221 @@ Resources:
           Value: !Ref AWS::StackName
 
   ####################################
+  # Lambda Functions
+  ####################################
+  
+  # Account Lambda Function
+  AccountApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "account-api-${AWS::StackName}"
+      CodeUri: src/
+      Handler: lambda_handler_account.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          # RapidAPI key will be retrieved at runtime from Secrets Manager
+          RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
+          # Direct references to infrastructure resources via CloudFormation exports
+          USER_POOL_ID:
+            Fn::ImportValue:
+              Fn::Sub: "${InfraStackName}-UserPoolId"
+          IDENTITY_POOL_ID:
+            Fn::ImportValue:
+              Fn::Sub: "${InfraStackName}-IdentityPoolId"
+          ACCOUNTS_TABLE:
+            Fn::ImportValue:
+              Fn::Sub: "${InfraStackName}-AccountTable"
+          ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /account
+            Method: ANY
+            
+  # Profile Lambda Function
+  ProfileApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "profile-api-${AWS::StackName}"
+      CodeUri: src/
+      Handler: lambda_handler_profile.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          # RapidAPI key will be retrieved at runtime from Secrets Manager
+          RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
+          USER_POOL_ID: !Ref UserPoolIdParameter
+          # The identity pool ID will be retrieved at runtime from SSM Parameter Store          
+          IDENTITY_POOL_PARAM_NAME: !Sub "/myai4/${Environment}/cognito/identity-pool-id"
+          # Import AccountTable from infrastructure stack
+          ACCOUNTS_TABLE:
+            Fn::ImportValue:
+              Fn::Sub: "${InfraStackName}-AccountTable"
+          PROFILE_TABLE: !Ref ProfileTable
+          ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /profile
+            Method: ANY
+            
+  # Profile Settings Lambda Function
+  ProfileSettingsApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "profile-settings-api-${AWS::StackName}"
+      CodeUri: src/
+      Handler: lambda_handler_profile_settings.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          # RapidAPI key will be retrieved at runtime from Secrets Manager
+          RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
+          # Direct references to infrastructure resources via CloudFormation exports
+          USER_POOL_ID:
+            Fn::ImportValue:
+              Fn::Sub: "${InfraStackName}-UserPoolId"
+          IDENTITY_POOL_ID:
+            Fn::ImportValue:
+              Fn::Sub: "${InfraStackName}-IdentityPoolId"
+          ACCOUNTS_TABLE:
+            Fn::ImportValue:
+              Fn::Sub: "${InfraStackName}-AccountTable"
+          PROFILE_TABLE: !Ref ProfileTable
+          PROFILE_SETTINGS_TABLE: !Ref ProfileSettingsTable
+          ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /profile-settings
+            Method: ANY
+            
+  # Profile AI Lambda Function
+  ProfileAIApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "profile-ai-api-${AWS::StackName}"
+      CodeUri: src/
+      Handler: lambda_handler_profile_ai.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          # RapidAPI key will be retrieved at runtime from Secrets Manager
+          RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
+          USER_POOL_ID: !Ref UserPoolIdParameter
+          # The identity pool ID will be retrieved at runtime from SSM Parameter Store          
+          IDENTITY_POOL_PARAM_NAME: !Sub "/myai4/${Environment}/cognito/identity-pool-id"
+          # Import AccountTable from infrastructure stack
+          ACCOUNTS_TABLE:
+            Fn::ImportValue:
+              Fn::Sub: "${InfraStackName}-AccountTable"
+          PROFILE_TABLE: !Ref ProfileTable
+          PROFILE_AI_TABLE: !Ref ProfileAITable
+          ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /profile-ai
+            Method: ANY
+
+  # Movie Lambda Function
+  MovieApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "movie-api-${AWS::StackName}"
+      CodeUri: src/
+      Handler: lambda_handler_movie.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          # RapidAPI key will be retrieved at runtime from Secrets Manager
+          RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
+          USER_POOL_ID: !Ref UserPoolIdParameter
+          # The identity pool ID will be retrieved at runtime from SSM Parameter Store          
+          IDENTITY_POOL_PARAM_NAME: !Sub "/myai4/${Environment}/cognito/identity-pool-id"
+          # Import AccountTable from infrastructure stack
+          ACCOUNT_TABLE:
+            Fn::ImportValue:
+              Fn::Sub: "${InfraStackName}-AccountTable"
+          MOVIES_TABLE: !Ref MovieTable
+          ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /movie
+            Method: ANY
+              # Subscription Lambda Function
+  SubscriptionApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "subscription-api-${AWS::StackName}"
+      CodeUri: src/
+      Handler: lambda_handler_subscription.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          # RapidAPI key will be retrieved at runtime from Secrets Manager
+          RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
+          USER_POOL_ID: !Ref UserPoolIdParameter
+          # The identity pool ID will be retrieved at runtime from SSM Parameter Store          
+          IDENTITY_POOL_PARAM_NAME: !Sub "/myai4/${Environment}/cognito/identity-pool-id"
+          # Import AccountTable from infrastructure stack
+          ACCOUNTS_TABLE:
+            Fn::ImportValue:
+              Fn::Sub: "${InfraStackName}-AccountTable"
+          SUBSCRIPTION_TABLE: !Ref SubscriptionTable
+          USER_USAGE_TABLE: !Ref UserUsageTable
+          ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /subscription
+            Method: ANY
+            
+  # Watchlists Lambda Function
+  WatchlistApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "watchlist-api-${AWS::StackName}"
+      CodeUri: src/
+      Handler: lambda_handler_watchlist.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          # RapidAPI key will be retrieved at runtime from Secrets Manager
+          RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
+          USER_POOL_ID: !Ref UserPoolIdParameter
+          # The identity pool ID will be retrieved at runtime from SSM Parameter Store          
+          IDENTITY_POOL_PARAM_NAME: !Sub "/myai4/${Environment}/cognito/identity-pool-id"
+          # Import AccountTable from infrastructure stack
+          ACCOUNTS_TABLE:
+            Fn::ImportValue:
+              Fn::Sub: "${InfraStackName}-AccountTable"
+          WATCHLISTS_TABLE: !Ref WatchlistTable
+          WATCH_HISTORY_TABLE: !Ref WatchHistoryTable
+          ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /watchlist
+            Method: ANY
+
+  ####################################
   # DynamoDB Tables - MyAI4 Ecosystem
   ####################################
 
@@ -144,11 +307,11 @@ Resources:
   # and is created during the post-confirmation process
 
   # TABLE 2: Subscriptions - Cross-service subscription management
-  SubscriptionsTable:
+  SubscriptionTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     Properties:
-      TableName: !Sub "myai4-subscriptions-${AWS::StackName}"
+      TableName: !Sub "myai4-subscription-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: accountId
@@ -181,36 +344,8 @@ Resources:
         - Key: Service
           Value: MyAI4-Ecosystem
         - Key: DataType
-          Value: Subscriptions
-
-  # TABLE 3: ServicePreferences - User preferences across all MyAI4 services
-  ServicePreferencesTable:
-    Type: AWS::DynamoDB::Table
-    DeletionPolicy: Retain
-    Properties:
-      TableName: !Sub "myai4-service-preferences-${AWS::StackName}"
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: accountId
-          AttributeType: S
-        - AttributeName: serviceType
-          AttributeType: S
-      KeySchema:
-        - AttributeName: accountId
-          KeyType: HASH
-        - AttributeName: serviceType
-          KeyType: RANGE
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      SSESpecification:
-        SSEEnabled: true
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Service
-          Value: MyAI4-Ecosystem
-        - Key: DataType
-          Value: ServicePreferences
+          Value: Subscription
+  # TABLE 3: ServicePreferences table has been removed to simplify architecture
 
   # TABLE 4: UserUsage - Cross-service usage analytics
   UserUsageTable:
@@ -252,50 +387,16 @@ Resources:
         - Key: DataType
           Value: UserUsage
 
-  # TABLE 5: FamilyGroups - Family management across services
-  FamilyGroupsTable:
-    Type: AWS::DynamoDB::Table
-    DeletionPolicy: Retain
-    Properties:
-      TableName: !Sub "myai4-family-groups-${AWS::StackName}"
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: familyId
-          AttributeType: S
-        - AttributeName: parentAccountId
-          AttributeType: S
-      KeySchema:
-        - AttributeName: familyId
-          KeyType: HASH
-      GlobalSecondaryIndexes:
-        - IndexName: ParentAccountIndex
-          KeySchema:
-            - AttributeName: parentAccountId
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
-      PointInTimeRecoverySpecification:
-        PointInTimeRecoveryEnabled: true
-      SSESpecification:
-        SSEEnabled: true
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Service
-          Value: MyAI4-Ecosystem
-        - Key: DataType
-          Value: FamilyGroups
-
   ####################################
   # Streaming Platform Tables
   ####################################
 
-  # TABLE 6: Movies - Movie catalog and metadata
-  MoviesTable:
+  # TABLE 6: Movie - Movies catalog and metadata
+  MovieTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     Properties:
-      TableName: !Sub "myai4-movies-${AWS::StackName}"
+      TableName: !Sub "myai4-movie-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: movieId
@@ -336,8 +437,8 @@ Resources:
         - Key: DataType
           Value: Movies
 
-  # TABLE 7: Watchlists - User watchlists and saved content
-  WatchlistsTable:
+  # TABLE 7: Watchlist - User watchlists and saved content
+  WatchlistTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     Properties:
@@ -426,12 +527,12 @@ Resources:
         - Key: DataType
           Value: WatchHistory
 
-  # TABLE 9: ProfilesTable - User profiles within accounts (previously StreamingProfilesTable)
-  ProfilesTable:
+  # TABLE 9: ProfileTable - User profiles within accounts
+  ProfileTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     Properties:
-      TableName: !Sub "myai4-profiles-${AWS::StackName}"
+      TableName: !Sub "myai4-profile-${AWS::StackName}"
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: accountId
@@ -460,43 +561,119 @@ Resources:
         - Key: Service
           Value: MyAI4-Ecosystem
         - Key: DataType
-          Value: Profiles
-  # TABLE 10: AccountsTable - Now managed by infrastructure stack
+          Value: Profile
+
+  # TABLE 10: ProfileSettings - Detailed profile settings including PIN protection
+  ProfileSettingsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: !Sub "myai4-profile-settings-${AWS::StackName}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: profileId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: profileId
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: MyAI4-Stream
+        - Key: DataType
+          Value: ProfileSettings
+          
+  # TABLE 11: ProfileAI - AI customization settings for each profile
+  ProfileAITable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: !Sub "myai4-profile-ai-${AWS::StackName}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: profileId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: profileId
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: MyAI4-Stream
+        - Key: DataType
+          Value: ProfileAI
+          
+  # TABLE 12: AccountsTable - Now managed by infrastructure stack
   # This table has been moved to the infrastructure stack since it's used by the Cognito triggers
 
 ####################################
 # Outputs
 ####################################
 Outputs:
-  ApiUrl:
-    Description: URL of the MyAI4 centralized API
-    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/centralized"
+  AccountApiUrl:
+    Description: URL of the MyAI4 Account API
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/account"
     Export:
-      Name: !Sub "${AWS::StackName}-ApiUrl"
+      Name: !Sub "${AWS::StackName}-AccountApiUrl"
+      
+  ProfileApiUrl:
+    Description: URL of the MyAI4 Profile API
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/profile"
+    Export:
+      Name: !Sub "${AWS::StackName}-ProfileApiUrl"
+      
+  MovieApiUrl:
+    Description: URL of the MyAI4 Movies API
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/movie"
+    Export:
+      Name: !Sub "${AWS::StackName}-MovieApiUrl"
+      
+  WatchlistApiUrl:
+    Description: URL of the MyAI4 Watchlists API
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/watchlist"
+    Export:
+      Name: !Sub "${AWS::StackName}-WatchlistApiUrl"
+      
+  SubscriptionApiUrl:
+    Description: URL of the MyAI4 Subscription API
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/subscription"
+    Export:
+      Name: !Sub "${AWS::StackName}-SubscriptionApiUrl"
+
+  ProfileSettingsApiUrl:
+    Description: URL of the MyAI4 Profile Settings API
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/profile-settings"
+    Export:
+      Name: !Sub "${AWS::StackName}-ProfileSettingsApiUrl"
+
+  ProfileAIApiUrl:
+    Description: URL of the MyAI4 Profile AI API
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/profile-ai"
+    Export:
+      Name: !Sub "${AWS::StackName}-ProfileAIApiUrl"
 
   SubscriptionsTableName:
     Description: Name of the Subscriptions DynamoDB table
     Value: !Ref SubscriptionsTable
     Export:
       Name: !Sub "${AWS::StackName}-SubscriptionsTable"
-
-  ServicePreferencesTableName:
-    Description: Name of the ServicePreferences DynamoDB table
-    Value: !Ref ServicePreferencesTable
-    Export:
-      Name: !Sub "${AWS::StackName}-ServicePreferencesTable"
+  # ServicePreferencesTableName has been removed as the table was removed
 
   UserUsageTableName:
     Description: Name of the UserUsage DynamoDB table
     Value: !Ref UserUsageTable
     Export:
       Name: !Sub "${AWS::StackName}-UserUsageTable"
-
-  FamilyGroupsTableName:
-    Description: Name of the FamilyGroups DynamoDB table
-    Value: !Ref FamilyGroupsTable
-    Export:
-      Name: !Sub "${AWS::StackName}-FamilyGroupsTable"
 
   MoviesTableName:
     Description: Name of the Movies DynamoDB table
@@ -516,9 +693,21 @@ Outputs:
     Export:
       Name: !Sub "${AWS::StackName}-WatchHistoryTable"
 
-  ProfilesTableName:
-    Description: Name of the Profiles DynamoDB table
-    Value: !Ref ProfilesTable
+  ProfileTableName:
+    Description: Name of the Profile DynamoDB table
+    Value: !Ref ProfileTable
     Export:
-      Name: !Sub "${AWS::StackName}-ProfilesTable"
+      Name: !Sub "${AWS::StackName}-ProfileTable"
+      
+  ProfileSettingsTableName:
+    Description: Name of the Profile Settings DynamoDB table
+    Value: !Ref ProfileSettingsTable
+    Export:
+      Name: !Sub "${AWS::StackName}-ProfileSettingsTable"
+      
+  ProfileAITableName:
+    Description: Name of the Profile AI DynamoDB table
+    Value: !Ref ProfileAITable
+    Export:
+      Name: !Sub "${AWS::StackName}-ProfileAITable"
   # Removed AccountsTableName output - should be imported directly from infrastructure stack

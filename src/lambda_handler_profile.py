@@ -17,17 +17,17 @@ dynamodb = boto3.resource('dynamodb')
 ssm = boto3.client('ssm')
 
 # Environment variables - populated from CloudFormation template
-PROFILES_TABLE = os.environ.get('PROFILES_TABLE')  # This now points to the ProfilesTable resource
-ACCOUNTS_TABLE = os.environ.get('ACCOUNTS_TABLE')  # Table for user accounts
+PROFILES_TABLE = os.environ.get('PROFILES_TABLE')  # This points to the ProfilesTable resource
+ACCOUNTS_TABLE = os.environ.get('ACCOUNTS_TABLE')  # Table for user accounts (imported from infrastructure stack)
 SUBSCRIPTIONS_TABLE = os.environ.get('SUBSCRIPTIONS_TABLE')
 SERVICE_PREFERENCES_TABLE = os.environ.get('SERVICE_PREFERENCES_TABLE')
 USER_USAGE_TABLE = os.environ.get('USER_USAGE_TABLE')
-FAMILY_GROUPS_TABLE = os.environ.get('FAMILY_GROUPS_TABLE')
 MOVIES_TABLE = os.environ.get('MOVIES_TABLE')
 WATCHLISTS_TABLE = os.environ.get('WATCHLISTS_TABLE')
 WATCH_HISTORY_TABLE = os.environ.get('WATCH_HISTORY_TABLE')
-# SSM Parameter path for Identity Pool ID
-IDENTITY_POOL_PARAM_NAME = os.environ.get('IDENTITY_POOL_PARAM_NAME')
+# Cognito resources imported from infrastructure stack
+USER_POOL_ID = os.environ.get('USER_POOL_ID')
+IDENTITY_POOL_ID = os.environ.get('IDENTITY_POOL_ID')
 
 # Mock RapidAPI key function - remove when integrating
 def get_rapidapi_key():
@@ -69,9 +69,8 @@ def handle_test(data: Dict[str, Any]) -> Dict[str, Any]:
     # Check for required environment variables
     for env_var in [
         'PROFILES_TABLE', 'SUBSCRIPTIONS_TABLE', 'SERVICE_PREFERENCES_TABLE',
-        'USER_USAGE_TABLE', 'FAMILY_GROUPS_TABLE', 'MOVIES_TABLE',
-        'WATCHLISTS_TABLE', 'WATCH_HISTORY_TABLE', 
-        'RAPIDAPI_SECRET_NAME', 'ENVIRONMENT', 'IDENTITY_POOL_PARAM_NAME'
+        'USER_USAGE_TABLE', 'MOVIES_TABLE', 'WATCHLISTS_TABLE', 'WATCH_HISTORY_TABLE', 
+        'RAPIDAPI_SECRET_NAME', 'ENVIRONMENT', 'IDENTITY_POOL_ID'
     ]:
         if not os.environ.get(env_var):
             warnings.append(f"Environment variable {env_var} is not set")
@@ -82,7 +81,6 @@ def handle_test(data: Dict[str, Any]) -> Dict[str, Any]:
         'SUBSCRIPTIONS_TABLE': SUBSCRIPTIONS_TABLE,
         'SERVICE_PREFERENCES_TABLE': SERVICE_PREFERENCES_TABLE,
         'USER_USAGE_TABLE': USER_USAGE_TABLE,
-        'FAMILY_GROUPS_TABLE': FAMILY_GROUPS_TABLE,
         'MOVIES_TABLE': MOVIES_TABLE,
         'WATCHLISTS_TABLE': WATCHLISTS_TABLE,
         'WATCH_HISTORY_TABLE': WATCH_HISTORY_TABLE,
@@ -114,26 +112,17 @@ def handle_test(data: Dict[str, Any]) -> Dict[str, Any]:
                 'name': 'Table name not configured'
             }
 
-    # Check SSM Parameter access
+    # Check environment variables for infrastructure resources
     parameter_status = {}
-    if IDENTITY_POOL_PARAM_NAME:
-        try:
-            identity_pool_id = get_identity_pool_id()
-            parameter_status['IDENTITY_POOL_ID'] = {
-                'status': 'accessible',
-                'parameter_name': IDENTITY_POOL_PARAM_NAME,
-                'value': identity_pool_id
-            }
-        except Exception as e:
-            parameter_status['IDENTITY_POOL_ID'] = {
-                'status': 'error',
-                'parameter_name': IDENTITY_POOL_PARAM_NAME,
-                'error': str(e)
-            }
+    if IDENTITY_POOL_ID:
+        parameter_status['IDENTITY_POOL_ID'] = {
+            'status': 'accessible',
+            'value': IDENTITY_POOL_ID
+        }
     else:
         parameter_status['IDENTITY_POOL_ID'] = {
             'status': 'missing',
-            'parameter_name': 'Parameter path not configured'
+            'error': 'Environment variable not set'
         }
     
     # Check for RapidAPI key
@@ -263,16 +252,16 @@ def handle_get_user_profile(data: Dict[str, Any]) -> Dict[str, Any]:
     Retrieves a single user's profile from DynamoDB
 
     Expected data:
-    - userId (required): The ID of the user
+    - accountId (required): The account ID of the user
     - profileId (required): The ID of the profile to retrieve
     """
     # Validate required parameters
-    if not data.get('userId'):
-        return {'error': 'userId is required', 'statusCode': 400}
+    if not data.get('accountId'):
+        return {'error': 'accountId is required', 'statusCode': 400}
     if not data.get('profileId'):
         return {'error': 'profileId is required', 'statusCode': 400}
     
-    userId = data['userId']
+    accountId = data['accountId']
     profileId = data['profileId']
     
     if not PROFILES_TABLE:
@@ -284,7 +273,7 @@ def handle_get_user_profile(data: Dict[str, Any]) -> Dict[str, Any]:
         # Query for the specific profile
         response = table.get_item(
             Key={
-                'userId': userId,
+                'accountId': accountId,
                 'profileId': profileId
             }
         )
@@ -294,7 +283,7 @@ def handle_get_user_profile(data: Dict[str, Any]) -> Dict[str, Any]:
             return {
                 'statusCode': 404,
                 'error': 'Profile not found',
-                'userId': userId,
+                'accountId': accountId,
                 'profileId': profileId
             }
         
@@ -330,41 +319,6 @@ def handle_update_user_profile(data: Dict[str, Any]) -> Dict[str, Any]:
     """Handler for updateUserProfile operation"""
     # TODO: Implement this handler
     return {'message': 'Not yet implemented', 'operation': 'updateUserProfile', 'data': data}
-
-def handle_get_movies(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Handler for getMovies operation"""
-    # TODO: Implement this handler
-    return {'message': 'Not yet implemented', 'operation': 'getMovies', 'data': data}
-
-def handle_get_movie_details(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Handler for getMovieDetails operation"""
-    # TODO: Implement this handler
-    return {'message': 'Not yet implemented', 'operation': 'getMovieDetails', 'data': data}
-
-def handle_get_watchlist(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Handler for getWatchlist operation"""
-    # TODO: Implement this handler
-    return {'message': 'Not yet implemented', 'operation': 'getWatchlist', 'data': data}
-
-def handle_add_to_watchlist(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Handler for addToWatchlist operation"""
-    # TODO: Implement this handler
-    return {'message': 'Not yet implemented', 'operation': 'addToWatchlist', 'data': data}
-
-def handle_remove_from_watchlist(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Handler for removeFromWatchlist operation"""
-    # TODO: Implement this handler
-    return {'message': 'Not yet implemented', 'operation': 'removeFromWatchlist', 'data': data}
-
-def handle_get_watch_history(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Handler for getWatchHistory operation"""
-    # TODO: Implement this handler
-    return {'message': 'Not yet implemented', 'operation': 'getWatchHistory', 'data': data}
-
-def handle_record_watch(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Handler for recordWatch operation"""
-    # TODO: Implement this handler
-    return {'message': 'Not yet implemented', 'operation': 'recordWatch', 'data': data}
 
 def handle_get_profiles(data: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -636,544 +590,4 @@ def handle_update_profile(data: Dict[str, Any]) -> Dict[str, Any]:
             'statusCode': 500
         }
 
-def handle_get_account(data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Handler for getAccount operation
-    Gets account details for a user.
-    
-    Expected data:
-    - userId (required): The Cognito user ID (sub) to get account details for
-    """
-    # Validate required parameters
-    if not data.get('userId'):
-        return {'error': 'userId is required', 'statusCode': 400}
-    
-    userId = data['userId']
-    
-    if not ACCOUNTS_TABLE:
-        return {'error': 'Accounts table not configured', 'statusCode': 500}
-    
-    try:
-        table = dynamodb.Table(ACCOUNTS_TABLE)
-        
-        # Get the account from DynamoDB
-        response = table.get_item(Key={'userId': userId})
-        
-        # Check if account exists
-        if 'Item' not in response:
-            return {
-                'statusCode': 404,
-                'error': 'Account not found',
-                'userId': userId
-            }
-        account = response['Item']
-        
-        return {
-            'statusCode': 200,
-            'account': account,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-    
-    except ClientError as e:
-        print(f"Error retrieving account: {str(e)}")
-        return {
-            'error': 'Failed to retrieve account',
-            'details': str(e),
-            'statusCode': 500
-        }
-    except Exception as e:
-        print(f"Unexpected error in getAccount: {str(e)}")
-        return {
-            'error': 'An unexpected error occurred',
-            'details': str(e),
-            'statusCode': 500
-        }
-
-def handle_update_account(data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Handler for updateAccount operation
-    Updates account details for a user.
-    
-    Expected data:
-    - userId (required): The Cognito user ID (sub) of the account to update
-    - updates (required): Object containing account updates, such as:
-      - email (optional): The new email address
-      - name (optional): The new name
-      - preferences (optional): Updated preferences object
-    """
-    # Validate required parameters
-    if not data.get('userId'):
-        return {'error': 'userId is required', 'statusCode': 400}
-    if not data.get('updates'):
-        return {'error': 'updates object is required', 'statusCode': 400}
-    
-    userId = data['userId']
-    updates = data['updates']
-    
-    if not ACCOUNTS_TABLE:
-        return {'error': 'Accounts table not configured', 'statusCode': 500}
-    
-    try:
-        table = dynamodb.Table(ACCOUNTS_TABLE)
-        
-        # Build update expression
-        update_expressions = []
-        expression_attribute_values = {}
-        expression_attribute_names = {}
-        
-        # Update email if provided
-        if 'email' in updates:
-            update_expressions.append('#email = :email')
-            expression_attribute_names['#email'] = 'email'
-            expression_attribute_values[':email'] = updates['email']
-            
-        # Update name if provided
-        if 'name' in updates:
-            update_expressions.append('#name = :name')
-            expression_attribute_names['#name'] = 'name'
-            expression_attribute_values[':name'] = updates['name']
-            
-        # Update preferences if provided
-        if 'preferences' in updates:
-            update_expressions.append('#preferences = :preferences')
-            expression_attribute_names['#preferences'] = 'preferences'
-            expression_attribute_values[':preferences'] = updates['preferences']
-        
-        # Always update the updatedAt timestamp
-        update_expressions.append('#updatedAt = :updatedAt')
-        expression_attribute_names['#updatedAt'] = 'updatedAt'
-        expression_attribute_values[':updatedAt'] = datetime.utcnow().isoformat()
-        
-        # If there's nothing to update, return early
-        if len(update_expressions) == 1:  # Only has updatedAt
-            return {
-                'statusCode': 400,
-                'error': 'No fields to update provided',
-                'userId': userId
-            }
-        
-        # Construct the update expression
-        update_expression = 'SET ' + ', '.join(update_expressions)
-        
-        # Update the account
-        response = table.update_item(
-            Key={
-                'userId': userId
-            },
-            UpdateExpression=update_expression,
-            ExpressionAttributeNames=expression_attribute_names,
-            ExpressionAttributeValues=expression_attribute_values,
-            ReturnValues='ALL_NEW'
-        )
-        
-        # Return the updated account
-        return {
-            'statusCode': 200,
-            'account': response.get('Attributes', {}),
-            'message': 'Account updated successfully',
-            'timestamp': datetime.utcnow().isoformat()
-        }
-    
-    except ClientError as e:
-        print(f"Error updating account: {str(e)}")
-        return {
-            'error': 'Failed to update account',
-            'details': str(e),
-            'statusCode': 500
-        }
-    except Exception as e:
-        print(f"Unexpected error in updateAccount: {str(e)}")
-        return {
-            'error': 'An unexpected error occurred',
-            'details': str(e),
-            'statusCode': 500
-        }
-
-def handle_get_family_group(data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Handler for getFamilyGroup operation
-    Retrieves the family group information for a user
-    
-    Expected data:
-    - userId (required): The ID of the user to retrieve the family group for
-    """
-    # Validate required parameters
-    if not data.get('userId'):
-        return {'error': 'userId is required', 'statusCode': 400}
-    
-    userId = data['userId']
-    
-    if not FAMILY_GROUPS_TABLE:
-        return {'error': 'Family Groups table not configured', 'statusCode': 500}
-    
-    try:
-        table = dynamodb.Table(FAMILY_GROUPS_TABLE)
-        
-        # Query for the family group by userId
-        response = table.get_item(
-            Key={
-                'userId': userId
-            }
-        )
-        
-        # Check if family group exists
-        if 'Item' not in response:
-            return {
-                'statusCode': 404,
-                'error': 'Family group not found',
-                'userId': userId
-            }
-        
-        family_group = response['Item']
-        
-        return {
-            'statusCode': 200,
-            'familyGroup': family_group,
-            'timestamp': datetime.utcnow().isoformat()
-        }
-    
-    except ClientError as e:
-        print(f"Error retrieving family group: {str(e)}")
-        return {
-            'error': 'Failed to retrieve family group',
-            'details': str(e),
-            'statusCode': 500
-        }
-    except Exception as e:
-        print(f"Unexpected error in getFamilyGroup: {str(e)}")
-        return {
-            'error': 'An unexpected error occurred',
-            'details': str(e),
-            'statusCode': 500
-        }
-
-def handle_create_family_group(data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Handler for createFamilyGroup operation
-    Creates a new family group
-    
-    Expected data:
-    - userId (required): The ID of the user creating the family group
-    - members (optional): List of user IDs to add as members of the family group
-    """
-    # Validate required parameters
-    if not data.get('userId'):
-        return {'error': 'userId is required', 'statusCode': 400}
-    
-    userId = data['userId']
-    members = data.get('members', [])
-    
-    if not FAMILY_GROUPS_TABLE:
-        return {'error': 'Family Groups table not configured', 'statusCode': 500}
-    
-    try:
-        table = dynamodb.Table(FAMILY_GROUPS_TABLE)
-        
-        # Create a new family group ID
-        familyGroupId = f"fg_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{userId[-6:]}"
-        
-        # Prepare family group item
-        family_group_item = {
-            'userId': userId,
-            'familyGroupId': familyGroupId,
-            'members': members,
-            'createdAt': datetime.utcnow().isoformat(),
-            'updatedAt': datetime.utcnow().isoformat()
-        }
-        
-        # Add the family group to DynamoDB
-        table.put_item(Item=family_group_item)
-        
-        return {
-            'statusCode': 201,  # Created
-            'familyGroup': family_group_item,
-            'message': 'Family group created successfully',
-            'timestamp': datetime.utcnow().isoformat()
-        }
-    
-    except ClientError as e:
-        print(f"Error creating family group: {str(e)}")
-        return {
-            'error': 'Failed to create family group',
-            'details': str(e),
-            'statusCode': 500
-        }
-    except Exception as e:
-        print(f"Unexpected error in createFamilyGroup: {str(e)}")
-        return {
-            'error': 'An unexpected error occurred',
-            'details': str(e),
-            'statusCode': 500
-        }
-
-def handle_update_family_group(data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Handler for updateFamilyGroup operation
-    Updates an existing family group
-    
-    Expected data:
-    - familyGroupId (required): The ID of the family group to update
-    - updates (required): Object containing update fields, such as:
-      - members (optional): List of user IDs to add or remove from the family group
-    """
-    # Validate required parameters
-    if not data.get('familyGroupId'):
-        return {'error': 'familyGroupId is required', 'statusCode': 400}
-    if not data.get('updates'):
-        return {'error': 'updates object is required', 'statusCode': 400}
-    
-    familyGroupId = data['familyGroupId']
-    updates = data['updates']
-    
-    if not FAMILY_GROUPS_TABLE:
-        return {'error': 'Family Groups table not configured', 'statusCode': 500}
-    
-    try:
-        table = dynamodb.Table(FAMILY_GROUPS_TABLE)
-        
-        # First get the family group to check current members
-        response = table.get_item(
-            Key={
-                'familyGroupId': familyGroupId
-            }
-        )
-        
-        if 'Item' not in response:
-            return {
-                'statusCode': 404,
-                'error': 'Family group not found',
-                'familyGroupId': familyGroupId
-            }
-        
-        family_group = response['Item']
-        current_members = set(family_group.get('members', []))
-        updates_members = set(updates.get('members', []))
-        
-        # Determine members to add and remove
-        members_to_add = list(updates_members - current_members)
-        members_to_remove = list(current_members - updates_members)
-        
-        # Update members list
-        updated_members = list(current_members.union(updates_members))
-        
-        # Update the family group
-        response = table.update_item(
-            Key={
-                'familyGroupId': familyGroupId
-            },
-            UpdateExpression='SET #members = :members, #updatedAt = :updatedAt',
-            ExpressionAttributeNames={
-                '#members': 'members',
-                '#updatedAt': 'updatedAt'
-            },
-            ExpressionAttributeValues={
-                ':members': updated_members,
-                ':updatedAt': datetime.utcnow().isoformat()
-            },
-            ReturnValues='ALL_NEW'
-        )
-        
-        return {
-            'statusCode': 200,
-            'familyGroup': response.get('Attributes', {}),
-            'message': 'Family group updated successfully',
-            'timestamp': datetime.utcnow().isoformat()
-        }
-    
-    except ClientError as e:
-        print(f"Error updating family group: {str(e)}")
-        return {
-            'error': 'Failed to update family group',
-            'details': str(e),
-            'statusCode': 500
-        }
-    except Exception as e:
-        print(f"Unexpected error in updateFamilyGroup: {str(e)}")
-        return {
-            'error': 'An unexpected error occurred',
-            'details': str(e),
-            'statusCode': 500
-        }
-
-def handle_add_family_member(data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Handler for addFamilyMember operation
-    Adds a new member to an existing family group
-    
-    Expected data:
-    - familyGroupId (required): The ID of the family group
-    - userId (required): The ID of the user to add as a member
-    """
-    # Validate required parameters
-    if not data.get('familyGroupId'):
-        return {'error': 'familyGroupId is required', 'statusCode': 400}
-    if not data.get('userId'):
-        return {'error': 'userId is required', 'statusCode': 400}
-    
-    familyGroupId = data['familyGroupId']
-    userId = data['userId']
-    
-    if not FAMILY_GROUPS_TABLE:
-        return {'error': 'Family Groups table not configured', 'statusCode': 500}
-    
-    try:
-        table = dynamodb.Table(FAMILY_GROUPS_TABLE)
-        
-        # First get the family group to check current members
-        response = table.get_item(
-            Key={
-                'familyGroupId': familyGroupId
-            }
-        )
-        
-        if 'Item' not in response:
-            return {
-                'statusCode': 404,
-                'error': 'Family group not found',
-                'familyGroupId': familyGroupId
-            }
-        
-        family_group = response['Item']
-        current_members = set(family_group.get('members', []))
-        
-        # Check if the user is already a member
-        if userId in current_members:
-            return {
-                'statusCode': 400,
-                'error': 'User is already a member of the family group',
-                'familyGroupId': familyGroupId,
-                'userId': userId
-            }
-        
-        # Add the new member to the members list
-        updated_members = list(current_members.union({userId}))
-        
-        # Update the family group
-        response = table.update_item(
-            Key={
-                'familyGroupId': familyGroupId
-            },
-            UpdateExpression='SET #members = :members, #updatedAt = :updatedAt',
-            ExpressionAttributeNames={
-                '#members': 'members',
-                '#updatedAt': 'updatedAt'
-            },
-            ExpressionAttributeValues={
-                ':members': updated_members,
-                ':updatedAt': datetime.utcnow().isoformat()
-            },
-            ReturnValues='ALL_NEW'
-        )
-        
-        return {
-            'statusCode': 200,
-            'familyGroup': response.get('Attributes', {}),
-            'message': 'Family member added successfully',
-            'timestamp': datetime.utcnow().isoformat()
-        }
-    
-    except ClientError as e:
-        print(f"Error adding family member: {str(e)}")
-        return {
-            'error': 'Failed to add family member',
-            'details': str(e),
-            'statusCode': 500
-        }
-    except Exception as e:
-        print(f"Unexpected error in addFamilyMember: {str(e)}")
-        return {
-            'error': 'An unexpected error occurred',
-            'details': str(e),
-            'statusCode': 500
-        }
-
-def handle_remove_family_member(data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Handler for removeFamilyMember operation
-    Removes a member from an existing family group
-    
-    Expected data:
-    - familyGroupId (required): The ID of the family group
-    - userId (required): The ID of the user to remove from the family group
-    """
-    # Validate required parameters
-    if not data.get('familyGroupId'):
-        return {'error': 'familyGroupId is required', 'statusCode': 400}
-    if not data.get('userId'):
-        return {'error': 'userId is required', 'statusCode': 400}
-    
-    familyGroupId = data['familyGroupId']
-    userId = data['userId']
-    
-    if not FAMILY_GROUPS_TABLE:
-        return {'error': 'Family Groups table not configured', 'statusCode': 500}
-    
-    try:
-        table = dynamodb.Table(FAMILY_GROUPS_TABLE)
-        
-        # First get the family group to check current members
-        response = table.get_item(
-            Key={
-                'familyGroupId': familyGroupId
-            }
-        )
-        
-        if 'Item' not in response:
-            return {
-                'statusCode': 404,
-                'error': 'Family group not found',
-                'familyGroupId': familyGroupId
-            }
-        
-        family_group = response['Item']
-        current_members = set(family_group.get('members', []))
-        
-        # Check if the user is a member
-        if userId not in current_members:
-            return {
-                'statusCode': 400,
-                'error': 'User is not a member of the family group',
-                'familyGroupId': familyGroupId,
-                'userId': userId
-            }
-        # Remove the member from the members list
-        updated_members = list(current_members.difference({userId}))
-        
-        # Update the family group
-        response = table.update_item(
-            Key={
-                'familyGroupId': familyGroupId
-            },
-            UpdateExpression='SET #members = :members, #updatedAt = :updatedAt',
-            ExpressionAttributeNames={
-                '#members': 'members',
-                '#updatedAt': 'updatedAt'
-            },
-            ExpressionAttributeValues={
-                ':members': updated_members,
-                ':updatedAt': datetime.utcnow().isoformat()
-            },
-            ReturnValues='ALL_NEW'
-        )
-        
-        return {
-            'statusCode': 200,
-            'familyGroup': response.get('Attributes', {}),
-            'message': 'Family member removed successfully',
-            'timestamp': datetime.utcnow().isoformat()
-        }
-    
-    except ClientError as e:
-        print(f"Error removing family member: {str(e)}")
-        return {
-            'error': 'Failed to remove family member',
-            'details': str(e),
-            'statusCode': 500
-        }
-    except Exception as e:
-        print(f"Unexpected error in removeFamilyMember: {str(e)}")
-        return {
-            'error': 'An unexpected error occurred',
-            'details': str(e),
-            'statusCode': 500
-        }
+# Removed SSM Parameter lookup function - using direct environment variables now

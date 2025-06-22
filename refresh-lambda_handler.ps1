@@ -1,4 +1,9 @@
 # Quick Lambda code refresh script for main API Lambda (lambda_handler.py)
+param(
+    [string]$dev = "myai4-backend-dev",
+    [string]$prod = "myai4-backend-prod"
+)
+
 $ErrorActionPreference = "Stop"
 
 # Configuration
@@ -7,16 +12,6 @@ $lambdaSourceFile = "src/lambda_handler.py"
 $zipFile = "lambda_handler.zip"
 
 # Stack names - set these to match your actual CloudFormation stack names
-$devStackName = "myai4-backend-dev"  # Default, change if needed
-$prodStackName = "myai4-backend-prod"  # Default, change if needed
-
-# Parse command-line arguments
-param(
-    [string]$dev = $devStackName,
-    [string]$prod = $prodStackName
-)
-
-# Update stack names if provided as arguments
 $devStackName = $dev
 $prodStackName = $prod
 
@@ -69,6 +64,7 @@ Write-Host "   Prod: $prodFunctionName"
 
 # Update dev function if it exists
 try {
+    Write-Host "Updating dev function: $devFunctionName..."
     aws lambda update-function-code `
       --function-name $devFunctionName `
       --s3-bucket $bucketName `
@@ -76,13 +72,15 @@ try {
       --publish `
       --region $region
     $version = (aws lambda get-function --function-name $devFunctionName --region $region --query 'Configuration.Version' --output text)
-    Write-Host "Dev Lambda function updated to version: $version"
+    Write-Host "Dev Lambda function updated to version: $version" -ForegroundColor Green
 } catch {
-    Write-Host "Dev function not found or could not be updated"
+    Write-Host "Error: Dev function not found or could not be updated" -ForegroundColor Red
+    Write-Host "Error details: $_" -ForegroundColor Yellow
 }
 
 # Update prod function if it exists
 try {
+    Write-Host "Updating prod function: $prodFunctionName..."
     aws lambda update-function-code `
       --function-name $prodFunctionName `
       --s3-bucket $bucketName `
@@ -90,11 +88,17 @@ try {
       --publish `
       --region $region
     $version = (aws lambda get-function --function-name $prodFunctionName --region $region --query 'Configuration.Version' --output text)
-    Write-Host "Prod Lambda function updated to version: $version"
+    Write-Host "Prod Lambda function updated to version: $version" -ForegroundColor Green
 } catch {
-    Write-Host "Prod function not found or could not be updated"
+    Write-Host "Error: Prod function not found or could not be updated" -ForegroundColor Red
+    Write-Host "Error details: $_" -ForegroundColor Yellow
 }
 
 # Cleanup - Comment out if you want to keep the zip file
 # Remove-Item $zipFile
-Write-Host "Finished updating Lambda handler function"
+Write-Host "Finished updating Lambda handler function" -ForegroundColor Green
+Write-Host "To test the API, use the following command:"
+Write-Host '$apiUrl = aws cloudformation describe-stacks --stack-name ' -NoNewline
+Write-Host $devStackName -ForegroundColor Cyan -NoNewline
+Write-Host ' --query "Stacks[0].Outputs[?OutputKey==''ApiUrl''].OutputValue" --output text'
+Write-Host 'Invoke-RestMethod -Uri "$apiUrl`?operation=test" -Method GET | ConvertTo-Json -Depth 10'
