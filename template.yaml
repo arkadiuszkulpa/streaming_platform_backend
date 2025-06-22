@@ -16,12 +16,6 @@ Parameters:
     Description: Name of the infrastructure stack that contains the AccountTable
     Default: !Sub "myai4-infrastructure-${Environment}"
 
-  # Adding UserPoolIdParameter which was referenced but not defined
-  UserPoolIdParameter:
-    Type: String
-    Description: ID of the Cognito User Pool
-    Default: ""
-
 Globals:
   Function:
     Timeout: 10
@@ -104,14 +98,11 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           # Direct references to infrastructure resources via CloudFormation exports
           USER_POOL_ID:
-            Fn::ImportValue:
-              Fn::Sub: "${InfraStackName}-UserPoolId"
+            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
           IDENTITY_POOL_ID:
-            Fn::ImportValue:
-              Fn::Sub: "${InfraStackName}-IdentityPoolId"
-          ACCOUNTS_TABLE:
-            Fn::ImportValue:
-              Fn::Sub: "${InfraStackName}-AccountTable"
+            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
+          ACCOUNT_TABLE:
+            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
       Events:
         ApiEvent:
@@ -133,13 +124,15 @@ Resources:
         Variables:
           # RapidAPI key will be retrieved at runtime from Secrets Manager
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
-          USER_POOL_ID: !Ref UserPoolIdParameter
-          # The identity pool ID will be retrieved at runtime from SSM Parameter Store          
-          IDENTITY_POOL_PARAM_NAME: !Sub "/myai4/${Environment}/cognito/identity-pool-id"
+          # Use the imported user pool ID directly
+          USER_POOL_ID:
+            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
+          # The identity pool ID will also be imported directly
+          IDENTITY_POOL_ID:
+            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"  
           # Import AccountTable from infrastructure stack
-          ACCOUNTS_TABLE:
-            Fn::ImportValue:
-              Fn::Sub: "${InfraStackName}-AccountTable"
+          ACCOUNT_TABLE:
+            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
           PROFILE_TABLE: !Ref ProfileTable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
       Events:
@@ -164,14 +157,11 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           # Direct references to infrastructure resources via CloudFormation exports
           USER_POOL_ID:
-            Fn::ImportValue:
-              Fn::Sub: "${InfraStackName}-UserPoolId"
+            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
           IDENTITY_POOL_ID:
-            Fn::ImportValue:
-              Fn::Sub: "${InfraStackName}-IdentityPoolId"
-          ACCOUNTS_TABLE:
-            Fn::ImportValue:
-              Fn::Sub: "${InfraStackName}-AccountTable"
+            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
+          ACCOUNT_TABLE:
+            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
           PROFILE_TABLE: !Ref ProfileTable
           PROFILE_SETTINGS_TABLE: !Ref ProfileSettingsTable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
@@ -195,13 +185,14 @@ Resources:
         Variables:
           # RapidAPI key will be retrieved at runtime from Secrets Manager
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
-          USER_POOL_ID: !Ref UserPoolIdParameter
-          # The identity pool ID will be retrieved at runtime from SSM Parameter Store          
-          IDENTITY_POOL_PARAM_NAME: !Sub "/myai4/${Environment}/cognito/identity-pool-id"
+          # Direct references to infrastructure resources via CloudFormation exports
+          USER_POOL_ID:
+            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
+          IDENTITY_POOL_ID:
+            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
           # Import AccountTable from infrastructure stack
-          ACCOUNTS_TABLE:
-            Fn::ImportValue:
-              Fn::Sub: "${InfraStackName}-AccountTable"
+          ACCOUNT_TABLE:
+            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
           PROFILE_TABLE: !Ref ProfileTable
           PROFILE_AI_TABLE: !Ref ProfileAITable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
@@ -225,13 +216,14 @@ Resources:
         Variables:
           # RapidAPI key will be retrieved at runtime from Secrets Manager
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
-          USER_POOL_ID: !Ref UserPoolIdParameter
-          # The identity pool ID will be retrieved at runtime from SSM Parameter Store          
-          IDENTITY_POOL_PARAM_NAME: !Sub "/myai4/${Environment}/cognito/identity-pool-id"
+          # Direct references to infrastructure resources via CloudFormation exports
+          USER_POOL_ID:
+            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
+          IDENTITY_POOL_ID:
+            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
           # Import AccountTable from infrastructure stack
           ACCOUNT_TABLE:
-            Fn::ImportValue:
-              Fn::Sub: "${InfraStackName}-AccountTable"
+            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
           MOVIES_TABLE: !Ref MovieTable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
       Events:
@@ -253,13 +245,14 @@ Resources:
         Variables:
           # RapidAPI key will be retrieved at runtime from Secrets Manager
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
-          USER_POOL_ID: !Ref UserPoolIdParameter
-          # The identity pool ID will be retrieved at runtime from SSM Parameter Store          
-          IDENTITY_POOL_PARAM_NAME: !Sub "/myai4/${Environment}/cognito/identity-pool-id"
+          # Direct references to infrastructure resources via CloudFormation exports
+          USER_POOL_ID:
+            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
+          IDENTITY_POOL_ID:
+            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
           # Import AccountTable from infrastructure stack
-          ACCOUNTS_TABLE:
-            Fn::ImportValue:
-              Fn::Sub: "${InfraStackName}-AccountTable"
+          ACCOUNT_TABLE:
+            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
           SUBSCRIPTION_TABLE: !Ref SubscriptionTable
           USER_USAGE_TABLE: !Ref UserUsageTable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
@@ -283,13 +276,14 @@ Resources:
         Variables:
           # RapidAPI key will be retrieved at runtime from Secrets Manager
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
-          USER_POOL_ID: !Ref UserPoolIdParameter
-          # The identity pool ID will be retrieved at runtime from SSM Parameter Store          
-          IDENTITY_POOL_PARAM_NAME: !Sub "/myai4/${Environment}/cognito/identity-pool-id"
+          # Direct references to infrastructure resources via CloudFormation exports
+          USER_POOL_ID:
+            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
+          IDENTITY_POOL_ID:
+            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
           # Import AccountTable from infrastructure stack
-          ACCOUNTS_TABLE:
-            Fn::ImportValue:
-              Fn::Sub: "${InfraStackName}-AccountTable"
+          ACCOUNT_TABLE:
+            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
           WATCHLISTS_TABLE: !Ref WatchlistTable
           WATCH_HISTORY_TABLE: !Ref WatchHistoryTable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
@@ -407,7 +401,7 @@ Resources:
         - AttributeName: genre
           AttributeType: S
         - AttributeName: releaseYear
-          AttributeType: N
+          AttributeType: S  # Changed from N to S - Numbers must be passed as strings in Default values
         - AttributeName: title
           AttributeType: S
       KeySchema:
