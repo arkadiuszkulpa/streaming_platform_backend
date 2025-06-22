@@ -10,11 +10,6 @@ Parameters:
       - dev
       - prod
     Default: dev
-    
-  InfraStackName:
-    Type: String
-    Description: Name of the infrastructure stack that contains the AccountTable
-    Default: !Sub "myai4-infrastructure-${Environment}"
 
 Globals:
   Function:
@@ -97,12 +92,12 @@ Resources:
           # RapidAPI key will be retrieved at runtime from Secrets Manager
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           # Direct references to infrastructure resources via CloudFormation exports
-          USER_POOL_ID:
-            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
+          USER_POOL_ID: 
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-UserPoolId"
           IDENTITY_POOL_ID:
-            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-IdentityPoolId"
           ACCOUNT_TABLE:
-            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-AccountTable"
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
       Events:
         ApiEvent:
@@ -126,13 +121,13 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           # Use the imported user pool ID directly
           USER_POOL_ID:
-            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-UserPoolId"
           # The identity pool ID will also be imported directly
           IDENTITY_POOL_ID:
-            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"  
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-IdentityPoolId"  
           # Import AccountTable from infrastructure stack
           ACCOUNT_TABLE:
-            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-AccountTable"
           PROFILE_TABLE: !Ref ProfileTable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
       Events:
@@ -157,11 +152,11 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           # Direct references to infrastructure resources via CloudFormation exports
           USER_POOL_ID:
-            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-UserPoolId"
           IDENTITY_POOL_ID:
-            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-IdentityPoolId"
           ACCOUNT_TABLE:
-            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-AccountTable"
           PROFILE_TABLE: !Ref ProfileTable
           PROFILE_SETTINGS_TABLE: !Ref ProfileSettingsTable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
@@ -187,12 +182,12 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           # Direct references to infrastructure resources via CloudFormation exports
           USER_POOL_ID:
-            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-UserPoolId"
           IDENTITY_POOL_ID:
-            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-IdentityPoolId"
           # Import AccountTable from infrastructure stack
           ACCOUNT_TABLE:
-            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-AccountTable"
           PROFILE_TABLE: !Ref ProfileTable
           PROFILE_AI_TABLE: !Ref ProfileAITable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
@@ -218,12 +213,12 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           # Direct references to infrastructure resources via CloudFormation exports
           USER_POOL_ID:
-            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-UserPoolId"
           IDENTITY_POOL_ID:
-            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-IdentityPoolId"
           # Import AccountTable from infrastructure stack
           ACCOUNT_TABLE:
-            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-AccountTable"
           MOVIES_TABLE: !Ref MovieTable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
       Events:
@@ -247,12 +242,12 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           # Direct references to infrastructure resources via CloudFormation exports
           USER_POOL_ID:
-            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-UserPoolId"
           IDENTITY_POOL_ID:
-            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-IdentityPoolId"
           # Import AccountTable from infrastructure stack
           ACCOUNT_TABLE:
-            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-AccountTable"
           SUBSCRIPTION_TABLE: !Ref SubscriptionTable
           USER_USAGE_TABLE: !Ref UserUsageTable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
@@ -278,12 +273,12 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           # Direct references to infrastructure resources via CloudFormation exports
           USER_POOL_ID:
-            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-UserPoolId"
           IDENTITY_POOL_ID:
-            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-IdentityPoolId"
           # Import AccountTable from infrastructure stack
           ACCOUNT_TABLE:
-            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
+            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-AccountTable"
           WATCHLISTS_TABLE: !Ref WatchlistTable
           WATCH_HISTORY_TABLE: !Ref WatchHistoryTable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
@@ -659,11 +654,11 @@ Outputs:
     Export:
       Name: !Sub "${AWS::StackName}-ProfileAIApiUrl"
 
-  SubscriptionsTableName:
+  SubscriptionTableName:
     Description: Name of the Subscriptions DynamoDB table
     Value: !Ref SubscriptionTable
     Export:
-      Name: !Sub "${AWS::StackName}-SubscriptionsTable"
+      Name: !Sub "${AWS::StackName}-SubscriptionTable"
   # ServicePreferencesTableName has been removed as the table was removed
 
   UserUsageTableName:
@@ -672,13 +667,13 @@ Outputs:
     Export:
       Name: !Sub "${AWS::StackName}-UserUsageTable"
 
-  MoviesTableName:
+  MovieTableName:
     Description: Name of the Movies DynamoDB table
     Value: !Ref MovieTable
     Export:
       Name: !Sub "${AWS::StackName}-MoviesTable"
 
-  WatchlistsTableName:
+  WatchlistTableName:
     Description: Name of the Watchlists DynamoDB table
     Value: !Ref WatchlistTable
     Export:
