@@ -203,17 +203,13 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Watchlist Operations
             'getWatchlist': handle_get_watchlist,
-            'addToWatchlist': handle_add_to_watchlist,
-            'removeFromWatchlist': handle_remove_from_watchlist,
             'deleteWatchlist': handle_delete_watchlist,
             'updateWatchlist': handle_update_watchlist,
             
             # Watch History Operations
             'getWatchHistory': handle_get_watch_history,
-            'recordWatch': handle_record_watch,
             'deleteWatchHistory': handle_delete_watch_history,
-            'updateWatchRecord': handle_update_watch_record,
-            'getWatchDetail': handle_get_watch_detail
+            'updateWatchRecord': handle_update_watch_record
         }
         
         handler = handlers.get(operation)

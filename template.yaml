@@ -16,8 +16,11 @@ Parameters:
     Description: Name of the infrastructure stack that contains the AccountTable
     Default: !Sub "myai4-infrastructure-${Environment}"
 
-  # REMOVED: RapidApiKeyParameter as direct parameter
-  # Now retrieved from SSM Parameter Store
+  # Adding UserPoolIdParameter which was referenced but not defined
+  UserPoolIdParameter:
+    Type: String
+    Description: ID of the Cognito User Pool
+    Default: ""
 
 Globals:
   Function:
@@ -664,7 +667,7 @@ Outputs:
 
   SubscriptionsTableName:
     Description: Name of the Subscriptions DynamoDB table
-    Value: !Ref SubscriptionsTable
+    Value: !Ref SubscriptionTable
     Export:
       Name: !Sub "${AWS::StackName}-SubscriptionsTable"
   # ServicePreferencesTableName has been removed as the table was removed
@@ -677,13 +680,13 @@ Outputs:
 
   MoviesTableName:
     Description: Name of the Movies DynamoDB table
-    Value: !Ref MoviesTable
+    Value: !Ref MovieTable
     Export:
       Name: !Sub "${AWS::StackName}-MoviesTable"
 
   WatchlistsTableName:
     Description: Name of the Watchlists DynamoDB table
-    Value: !Ref WatchlistsTable
+    Value: !Ref WatchlistTable
     Export:
       Name: !Sub "${AWS::StackName}-WatchlistsTable"
 
