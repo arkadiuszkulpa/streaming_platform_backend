@@ -62,8 +62,11 @@ Resources:
         DefaultAuthorizer: CognitoAuthorizer
         Authorizers:
           CognitoAuthorizer:
-            UserPoolArn: !ImportValue 
-              'Fn::Sub': '${InfraStackName}-UserPoolArn'
+            # Construct the ARN from the UserPoolId which is what the infra stack exports
+            UserPoolArn: !Sub 
+              - "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPoolId}"
+              - UserPoolId: !ImportValue 
+                  'Fn::Sub': '${InfraStackName}-UserPoolId' 
             Identity:
               Header: Authorization
               ValidationExpression: Bearer.*
