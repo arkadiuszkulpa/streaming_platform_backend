@@ -1,6 +1,6 @@
 # MyAI4 Ecosystem - Hybrid Architecture
 
-## Project Overview
+# Project Overview
 
 MyAI4 represents a revolutionary AI-first approach to digital services, creating a unified platform that seamlessly integrates multiple life domains through a single, intelligent interface. This repository contains the foundation for **MyAI4Stream.co.uk** (streaming service), designed as the first module in a hybrid architecture that will expand to **MyAI4Shopping.co.uk**, **MyAI4Planning.co.uk**, and other AI-powered life management services.
 
@@ -50,95 +50,6 @@ Unlike traditional microservices architecture, MyAI4 adopts a **hybrid approach*
 - Subscription-based premium AI features
 - User-controlled algorithm transparency
 
-## Architecture
-├── Frontend Repository (this repo)
-├── Backend Repository (separate)
-└── Infrastructure Repository (separate)
-
-### MyAI4 Transformation Plan
-
-## Current Implementation Status ✅
-
-### ✅ MyAI4Stream Foundation Complete
-- **Authentication**: AWS Cognito with Google OAuth and account linking capability
-- **Backend Integration**: Domain-specific API endpoints for modular service access
-- **Infrastructure**: Two-stack architecture (infra + backend) deployment ready
-- **Data Layer**: 11 DynamoDB tables (5 ecosystem + 6 streaming specific)
-- **Configuration**: Multi-stack CloudFormation export system
-- **Security**: Point-in-time recovery, SSE encryption, proper IAM roles
-
-### ✅ Authentication System Improvements
-- **Account Linking**: Social federation linked with password accounts by email
-- **Standardized Schema**: Consistent user records across authentication methods
-- **Federation Support**: Google OAuth with email verification preservation
-- **User Management**: Pre-signup and post-confirmation Lambda triggers
-- **User Profile Flow**: New users directed to profile creation experience
-
-### ✅ Backend Architecture (Deployment Ready)
-- **API Gateway**: Domain-specific endpoints (`/account`, `/profiles`, `/movies`, `/watchlists`, `/profile-settings`, `/profile-ai`)
-- **Lambda Functions**: Modular Python-based backend with specialized handlers for each domain
-- **Database Design**: 11 application DynamoDB tables plus AccountTable in infrastructure stack
-  - **Authentication Table** (in infrastructure stack): AccountTable
-  - **Cross-Service Tables**: Profiles, Subscriptions, ServicePreferences, UserUsage
-  - **Profile Enhancements**: ProfileSettings (PIN protection), ProfileAI (custom AI settings)
-  - **Streaming-Specific**: Movies, Watchlists, WatchHistory
-- **Service Integration**: UserDataService.ts with domain-specific API client pattern
-
-### ✅ Infrastructure Split Architecture  
-- **Infrastructure Stack** (`template-infra.yaml`): 
-  - Cognito User Pool with pre-signup and post-confirmation Lambda triggers
-  - S3/CloudFront for frontend hosting
-  - OAuth integration and social logins
-  - AccountTable DynamoDB table for core account management
-  - Authentication Lambda functions
-- **Backend Stack** (`template.yaml`): 
-  - API Gateway with domain-specific endpoints
-  - Specialized Lambda functions for each domain area
-  - 11 DynamoDB tables for application data
-- **Cross-Stack Integration**: SSM Parameter Store for flexible cross-stack references
-  - AccountTable reference decoupled via SSM Parameter
-  - Eliminates hard dependencies between stacks
-  - Support for gradual migration from direct imports
-- **Security**: SSE encryption, point-in-time recovery, IAM roles with least privilege
-- **Multi-Environment**: Dev/prod support with SSM Parameter Store
-
-### ✅ Domain-Specific Architecture
-- **Modular Lambda Structure**:
-  - `AccountApiFunction`: Account management operations (`lambda_handler_account.py`)
-  - `ProfilesApiFunction`: Profile core data management (`lambda_handler_profiles.py`)
-  - `ProfileSettingsApiFunction`: PIN-protected settings (`lambda_handler_profile_settings.py`)
-  - `ProfileAIApiFunction`: AI customization settings (`lambda_handler_profile_ai.py`)
-  - `MoviesApiFunction`: Movie catalog management (`lambda_handler_movies.py`)
-  - `WatchlistsApiFunction`: User watchlist operations (`lambda_handler_watchlists.py`)
-- **Enhanced Data Storage**:
-  - Core profile data for account management (ProfilesTable)
-  - PIN-protected settings for child profiles (ProfileSettingsTable)
-  - Customizable AI preferences per profile (ProfileAITable)
-- **API Endpoints**:
-  - Domain-specific paths: `/account`, `/profile`, `/profile-settings`, `/profile-ai`, `/movie`, `/watchlist`, `/subscription`
-
-### Frontend Technologies (MyAI4 Foundation)
-- **Framework**: React 18 with TypeScript (template for all services)
-- **Build Tool**: Vite for fast development and builds
-- **Styling**: Tailwind CSS with MyAI4 design system
-- **Routing**: React Router v6 with domain-based routing
-- **Authentication**: react-oidc-context with shared Cognito pool
-- **Testing**: Vitest + React Testing Library
-
-### AWS Infrastructure (MyAI4 Two-Stack Architecture)
-- **Infrastructure Stack**: 
-  - Shared Cognito User Pool with authentication Lambda triggers
-  - S3/CloudFront hosting
-  - OAuth integration
-  - AccountTable for identity management
-  - Authentication Lambda functions
-- **Backend Stack**: 
-  - Domain-specific Lambda functions (accounts, profiles, movies, watchlists, profile-settings, profile-ai)
-  - API Gateway with domain-based routing
-  - DynamoDB tables (11 application tables, excluding AccountTable)
-- **Security**: SSE encryption, point-in-time recovery, IAM roles with least privilege
-- **Configuration**: SSM Parameter Store with automated export fetching
-
 ## Business Impact & Market Positioning
 
 ### Competitive Advantages
@@ -175,7 +86,115 @@ Unlike traditional microservices architecture, MyAI4 adopts a **hybrid approach*
 - **Profile-specific AI settings** stored in dedicated ProfileAI table
 - **PIN-protected settings** for parent-controlled AI experiences
 
-## Development Guidelines
+# ─────────────────────────────────────────────
+# Architecture Overview
+
+The MyAI4 platform is built on a modular, scalable architecture that separates concerns across three main repositories: frontend, backend, and infrastructure. This approach enables rapid service duplication, robust security, and efficient code reuse across all MyAI4 domain services.
+
+### Frontend
+
+- **Framework**: React 18 with TypeScript, serving as the template for all MyAI4 services.
+- **Build Tool**: Vite for fast development and optimized builds.
+- **Styling**: Tailwind CSS, customized with the MyAI4 design system.
+- **Routing**: React Router v6, supporting domain-based navigation.
+- **Authentication**: `react-oidc-context` integrated with a shared AWS Cognito User Pool for unified login across services.
+- **Testing**: Vitest and React Testing Library for comprehensive unit and integration testing.
+- **Service Integration**: Domain-specific API clients (e.g., `UserDataService.ts`) abstract backend communication, ensuring type safety and modularity.
+
+### Backend
+
+- **API Gateway**: Exposes domain-specific endpoints (e.g., `/account`, `/profile`, `/movie`, `/watchlist`, `/profile-settings`, `/profile-ai`, `/subscription`).
+- **Lambda Functions**: Modular Python-based handlers for each domain, enabling separation of business logic:
+  - Account management (`lambda_handler_account.py`)
+  - Profile management (`lambda_handler_profiles.py`)
+  - PIN-protected profile settings (`lambda_handler_profile_settings.py`)
+  - AI customization per profile (`lambda_handler_profile_ai.py`)
+  - Movie catalog (`lambda_handler_movies.py`)
+  - Watchlist operations (`lambda_handler_watchlists.py`)
+  - Subscription management (`lambda_handler_subscription.py`)
+- **Database**: 11 DynamoDB tables for application data (including cross-service and streaming-specific tables), plus an AccountTable managed in the infrastructure stack.
+  - Cross-service: Profile, Subscription, UserUsage
+  - Profile enhancements: ProfileSettings (PIN protection), ProfileAI (custom AI settings)
+  - Streaming-specific: Movie, Watchlist, WatchHistory
+
+### Infrastructure
+
+- **Infrastructure Stack** (`template-infra.yaml`):
+  - AWS Cognito User Pool with Lambda triggers for pre-signup and post-confirmation workflows.
+  - S3 and CloudFront for secure, global frontend hosting.
+  - OAuth integration (including Google) and federated identity support.
+  - AccountTable DynamoDB table for core account management.
+  - Authentication Lambda functions for account linking and user record standardization.
+- **Backend Stack** (`template-backend.yaml`):
+  - API Gateway with domain-based routing.
+  - Specialized Lambda functions for each service domain.
+  - 11 DynamoDB tables for application data.
+- **Security & Configuration**:
+  - SSE encryption and point-in-time recovery enabled on all tables.
+  - IAM roles follow least-privilege principles.
+  - SSM Parameter Store for secure configuration, with backend stack importing values directly from the infrastructure stack for simplified deployment.
+- **Cross-Stack Integration**:
+  - Backend stack now directly imports all required outputs from the infrastructure stack, streamlining deployment and reducing operational complexity.
+
+This architecture ensures a clear separation of concerns, high code reuse, and robust security, while supporting rapid expansion of new MyAI4 domain services with minimal overhead.
+
+---
+# 📊 Database Architecture
+
+### MyAI4 Ecosystem Tables (Cross-Service)
+
+1. **AccountTable** (Managed in Infrastructure Stack)
+   - Stored in infrastructure stack as it's used by Cognito triggers
+   - Primary Key: `accountId` (HASH)
+   - Purpose: Core user identity across all MyAI4 services
+   - Referenced by Lambda functions using imported value from infrastructure stack
+
+2. **Profile** (`myai4-profile-${AWS::StackName}`)
+   - Primary Key: `accountId` (HASH) + `profileId` (RANGE)
+   - GSI: `ProfileIdIndex` on `profileId` (HASH)
+   - Purpose: User profiles within accounts across MyAI4 services
+
+3. **ProfileSettings** (`myai4-profile-settings-${AWS::StackName}`)
+   - Primary Key: `profileId` (HASH)
+   - Purpose: Cross-service profile settings including PIN protection for parental controls
+   - Used for family safety features across all MyAI4 services
+
+4. **ProfileAI** (`myai4-profile-ai-${AWS::StackName}`)
+   - Primary Key: `profileId` (HASH) 
+   - Purpose: Cross-service AI customization settings for each profile
+   - Enables consistent AI personalization across all MyAI4 services
+
+5. **Subscriptions** (`myai4-subscription-${AWS::StackName}`)
+   - Primary Key: `accountId` (HASH) + `subscriptionId` (RANGE)
+   - GSI: `ServiceTypeIndex` on `serviceType` (HASH) with `accountId` (RANGE)
+   - Purpose: Cross-service subscription management
+
+6. **UserUsage** (`myai4-user-usage-${AWS::StackName}`)
+   - Primary Key: `accountId` (HASH) + `timestamp` (RANGE)
+   - GSI: `ServiceTypeIndex` on `serviceType` (HASH) with `timestamp` (RANGE)
+   - Purpose: Cross-service usage analytics and AI learning
+
+### Streaming Platform Tables (Service-Specific)
+
+7. **Movie** (`myai4-movie-${AWS::StackName}`)
+   - Primary Key: `movieId` (HASH)
+   - GSI: `GenreIndex` on `genre` (HASH) with `releaseYear` (RANGE)
+   - GSI: `TitleIndex` on `title` (HASH)
+   - Purpose: Movie catalog and metadata
+
+8. **Watchlist** (`myai4-watchlists-${AWS::StackName}`)
+   - Primary Key: `accountId` (HASH) + `movieId` (RANGE)
+   - GSI: `ProfileIndex` on `profileId` (HASH) with `movieId` (RANGE)
+   - Purpose: User watchlists and saved content
+
+9. **WatchHistory** (`myai4-watch-history-${AWS::StackName}`)
+   - Primary Key: `accountId` (HASH) + `watchedAt` (RANGE)
+   - GSI: `ProfileIndex` on `profileId` (HASH) with `watchedAt` (RANGE)
+   - GSI: `MovieIndex` on `movieId` (HASH) with `watchedAt` (RANGE)
+   - Purpose: User viewing history and progress tracking
+
+# ─────────────────────────────────────────────
+# Development Guidelines & Quick Start
 
 ### Authentication Flow
 1. User visits landing page
@@ -256,9 +275,6 @@ npm run fetch-config:dev
 
 # Start development server
 npm run dev
-
-# Test backend integration
-npm run test-api
 ```
 
 ### Deployment (Ready for Production)
@@ -272,28 +288,14 @@ aws cloudformation deploy \
   --region eu-west-2
 
 # 2. Deploy backend stack (Lambda, API Gateway, DynamoDB)
+# Ideally using AWS CodePipeline or similar CI/CD tool, but for manual deployment:
 aws cloudformation deploy \
   --template-file template-backend.yaml \
   --stack-name myai4-backend-dev \
   --parameter-overrides Environment=dev \
   --capabilities CAPABILITY_NAMED_IAM \
   --region eu-west-2
-
-# 3. Configure and test frontend
-npm run fetch-config:dev
-npm run build:dev
-
-# 4. Test integration
-npm run test-api
 ```
-
-### Testing Strategy
-
-1. **Unit Tests**: Existing Vitest tests for components
-2. **Integration Tests**: `npm run test-api` for backend integration  
-3. **End-to-End**: Manual testing in browser after deployment
-4. **Infrastructure Tests**: CloudFormation stack validation
-5. **Authentication Tests**: Testing scenarios documented in `End_to_End_Testing/authentication_scenarios.md`
 
 ### Troubleshooting Common Issues
 
@@ -342,278 +344,25 @@ npm run test-api
    - Profile management independent of auth method
    - Customizable user preferences preserved across login methods
 
-## Future Roadmap & Success Metrics
+## 🔒 Security & Compliance Specifications
 
-### Detailed Roadmap
+• Encryption & Backup (SSE Encryption, Point-in-Time Recovery, DeletionPolicy)
 
-#### Q1 2025: Foundation Completion (Current)
-- [x] Complete MyAI4Stream backend integration with domain-specific Lambda handlers
-- [x] Implement profile settings and PIN protection system
-- [x] Add profile-specific AI customization capability
-- [ ] Launch MyAI4Stream.co.uk production
-- [ ] Establish shared component packages
-- [ ] Implement cross-service user management
+• Access Control (Lambda Execution Role, DynamoDB Access, SSM Parameter Access, Cognito Federated Access)
 
-#### Q2 2025: Ecosystem Expansion
-- [ ] Launch MyAI4Shopping.co.uk beta
-- [ ] Implement unified AI assistant interface
-- [ ] Cross-service recommendation engine
-- [ ] Advanced family management features
+• Data Privacy (SSM Parameters, CloudFormation Security, Credential Separation)
 
-#### Q3 2025: AI Enhancement
-- [ ] Natural language service interaction
-- [ ] Predictive cross-domain recommendations
-- [ ] Advanced personalization algorithms
-- [ ] Community-driven AI improvements
+• Cross-Stack References (SSM Parameter Store, Decoupled Dependencies, Infrastructure Isolation)
 
-#### Q4 2025: Market Leadership
-- [ ] Launch MyAI4Gaming.co.uk
-- [ ] International expansion planning
-- [ ] Enterprise family management tools
-- [ ] AI assistant marketplace
+## ⚡ Performance & Scalability Configuration
 
-### Success Metrics
+• DynamoDB Configuration (Billing Mode, Global Secondary Indexes, Key Schemas)
 
-#### Technical Metrics
-- **Code Reuse Rate**: Target 90% across new services
-- **Deployment Time**: New service launch in <4 weeks
-- **System Reliability**: 99.9% uptime across all domains
-- **AI Accuracy**: >85% recommendation satisfaction
+• Lambda Configuration (Runtime, Memory Allocation, Timeout, Concurrency)
 
-#### Business Metrics
-- **User Retention**: Cross-service usage increases retention 3x
-- **Family Adoption**: Family plans become primary revenue driver
-- **Market Expansion**: Launch 3 new domains within 12 months
-- **Customer Satisfaction**: Family safety features drive premium subscriptions
+• API Gateway Configuration (Environment-Specific Staging, Centralized Endpoint Design, Lambda Integration)
 
-## Future Roadmap
-
-### Phase 2: Service Expansion (Next 3 Months)
-- [x] Implement domain-based routing with specialized Lambda handlers
-- [x] Add profile customization features (settings and AI preferences)
-- [ ] Create shared component packages (`@myai4/auth-core`, `@myai4/ui-components`)
-- [ ] Launch MyAI4Shopping.co.uk module using template patterns
-- [ ] Extract reusable authentication and UI components
-
-### Phase 3: AI Enhancement (3-6 Months)
-- [ ] Unified AI assistant interface across all services
-- [ ] Cross-service recommendation engine
-- [ ] Natural language service interaction
-- [ ] Advanced personalization algorithms
-
-### Phase 4: Ecosystem Maturity (6-12 Months)
-- [ ] Launch MyAI4Gaming.co.uk module
-- [ ] Advanced family management features
-- [ ] Enterprise family management tools
-- [ ] International expansion planning
-
-## Development Status & Next Actions
-
-### ✅ Completed (Phase 1)
-- Backend integration architecture implemented
-- Two-stack CloudFormation deployment ready
-- All components documented with scalability patterns
-- Cross-service data models designed
-
-### 🔄 In Progress (Phase 2)
-- Shared component extraction planning
-- Service template refinement
-- Configuration management improvements
-
-### ⏳ Planned (Phase 3+)
-- Multi-domain service deployment
-- Unified AI assistant development
-- Cross-service intelligence implementation
-
-## Contributing to MyAI4 Ecosystem
-
-This repository serves as the foundation template for all future MyAI4 services. When creating new services:
-
-1. **Copy this architecture** - Use this repo as the starting template
-2. **Reuse shared components** - Extract common elements to shared packages
-3. **Follow naming conventions** - Use MyAI4[Domain].co.uk pattern
-4. **Maintain documentation** - Keep scalability comments updated
-5. **Test cross-service integration** - Ensure unified experience
-
-### Technical Success Metrics
-
-#### Achieved ✅
-- **Code Reuse**: 90% of authentication and UI patterns ready for extraction
-- **Setup Time**: New service creation template established
-- **Deployment**: Two-stack architecture validated and production ready
-- **Security**: Enterprise-grade AWS security with proper IAM roles
-
-#### Target Goals (MyAI4 Ecosystem)
-- **Service Launch**: <4 weeks for new MyAI4 domain modules
-- **Maintenance**: Single developer can manage entire ecosystem
-- **User Experience**: Unified authentication across all services
-- **AI Intelligence**: Cross-service learning and recommendations
-
-## Conclusion
-
-The MyAI4 transformation positions this platform as the foundation for a revolutionary AI-first digital life management ecosystem. By maintaining the familiar Netflix-like interface while building in cross-service intelligence and family-centric controls, MyAI4 creates a unique market position that combines the best of specialized services with the convenience of unified AI assistance.
-
-The hybrid architecture ensures that users get the depth of specialized platforms (streaming, shopping, gaming) while benefiting from the intelligence that comes from AI that understands their complete digital life context.
 
 ## License
 
 This project is proprietary software for the MyAI4 ecosystem. All rights reserved.
-
----
-
-**MyAI4 Ecosystem**: Transforming digital life through unified AI intelligence across all domains.
-
-## 📊 Database Architecture
-
-### MyAI4 Ecosystem Tables (Cross-Service)
-
-1. **UserProfiles** (`myai4-user-profiles-{env}`)
-   - Primary Key: `accountId`
-   - GSI: `EmailIndex` for email-based lookups
-   - Purpose: Core user data across all MyAI4 services
-
-2. **Subscriptions** (`myai4-subscriptions-{env}`)
-   - Primary Key: `accountId` + `subscriptionId`
-   - GSI: `ServiceTypeIndex` for service-specific queries
-   - Purpose: Cross-service subscription management
-
-3. **ServicePreferences** (`myai4-service-preferences-{env}`)
-   - Primary Key: `accountId` + `serviceType`
-   - Purpose: User preferences across streaming, shopping, gaming services
-
-4. **UserUsage** (`myai4-user-usage-{env}`)
-   - Primary Key: `accountId` + `timestamp`
-   - GSI: `ServiceTypeIndex` for analytics
-   - Purpose: Cross-service usage analytics and AI learning
-
-5. **FamilyGroups** (`myai4-family-groups-{env}`)
-   - Primary Key: `familyId`
-   - GSI: `ParentUserIndex` for family management
-   - Purpose: Family management across all MyAI4 services
-
-### Streaming Platform Tables (Service-Specific)
-
-6. **Movies** (`myai4-movies-{env}`)
-   - Primary Key: `movieId`
-   - GSI: `GenreIndex`, `TitleIndex` for search and filtering
-   - Purpose: Movie catalog and metadata
-
-7. **Watchlists** (`myai4-watchlists-{env}`)
-   - Primary Key: `accountId` + `movieId`
-   - GSI: `ProfileIndex` for profile-specific watchlists
-   - Purpose: User watchlists and saved content
-
-8. **WatchHistory** (`myai4-watch-history-{env}`)
-   - Primary Key: `accountId` + `watchedAt`
-   - GSI: `ProfileIndex`, `MovieIndex` for analytics
-   - Purpose: User viewing history and progress tracking
-
-9. **StreamingProfiles** (`myai4-streaming-profiles-{env}`)
-   - Primary Key: `profileId`
-   - GSI: `UserIndex` for user-specific profiles
-   - Purpose: Streaming profiles (different from user accounts)
-
-## 🔒 Security & Compliance Specifications
-
-### Encryption & Backup
-- **SSE Encryption**: All DynamoDB tables have server-side encryption enabled
-- **Point-in-Time Recovery**: Enabled on all tables for data protection
-- **DeletionPolicy**: Retain prevents accidental data loss during stack updates
-
-### Access Control
-- **Lambda Execution Role**: Minimal required permissions for backend operations
-- **DynamoDB Access**: Full access for backend operations with proper scoping
-- **SSM Parameter Access**: Restricted to `/myai4/*` path for secure configuration
-- **Cognito Federated Access**: Proper conditions and role assumptions
-
-### Data Privacy
-- **SSM Parameters**: Sensitive configuration (OAuth secrets) stored securely
-- **CloudFormation Security**: NoEcho: true on sensitive parameters
-- **Credential Separation**: Infrastructure vs. backend credentials properly isolated
-
-### Cross-Stack References
-- **SSM Parameter Store**: Used for flexible cross-stack references (e.g., AccountTable name)
-- **Decoupled Dependencies**: Stacks can deploy independently without hard dependencies
-- **Infrastructure Isolation**: Clear separation between infrastructure and backend resources
-
-## ⚡ Performance & Scalability Configuration
-
-### DynamoDB Configuration
-- **Billing Mode**: PAY_PER_REQUEST for automatic scaling without capacity planning
-- **Global Secondary Indexes**: Optimized for efficient query patterns
-- **Key Schemas**: Designed for optimal access patterns and data distribution
-
-### Lambda Configuration
-- **Runtime**: Python 3.12 for optimal performance and compatibility
-- **Memory Allocation**: 256MB (balanced cost/performance ratio)
-- **Timeout**: 10-second timeout for API operations
-- **Concurrency**: Automatic scaling based on demand
-
-### API Gateway Configuration
-- **Environment-Specific Staging**: Proper environment isolation
-- **Centralized Endpoint Design**: Efficient routing through `/centralized` endpoint
-- **Integration**: Lambda proxy integration for optimal performance
-
-## 🔄 Architecture Flow
-
-```
-Frontend (React/TypeScript)
-    ↓ UserDataService.ts
-    ↓ HTTP calls to /centralized
-API Gateway 
-    ↓ triggers
-Lambda Function (centralized_api)
-    ↓ reads/writes  
-DynamoDB Tables (MyAI4 Ecosystem + Streaming)
-    ↓ integrates with
-AWS Infrastructure (Cognito, S3, CloudFront)
-```
-
-### Key Components
-- **Cognito User Pool**: Shared authentication across all MyAI4 services
-- **Cognito Identity Pool**: Federated identity management with Google OAuth
-- **S3 + CloudFront**: Frontend hosting infrastructure with global distribution
-- **IAM Roles**: Proper authentication and authorization boundaries
-- **Cross-Stack Integration**: Infrastructure and backend stacks properly linked
-
-## Backend Integration Approach
-
-### Centralized Lambda Pattern (No Amplify)
-The MyAI4 ecosystem uses a direct API integration with a centralized Lambda function, rather than using AWS Amplify:
-
-```
-Frontend (React)
-    ↓ UserDataService.ts ─→ CentralizedApiService.ts
-    ↓ Direct HTTP calls to API Gateway (/centralized endpoint)
-API Gateway 
-    ↓ triggers
-Lambda Function (centralized_api)
-    ↓ operation-based routing to handler functions
-    ↓ reads/writes  
-DynamoDB Tables
-```
-
-This architecture was chosen for several reasons:
-- **Simplified Backend**: One Lambda function handles all operations through a routing pattern
-- **Direct Control**: No intermediate Amplify layer for more control and customization
-- **Reduced Dependencies**: Fewer client-side dependencies to manage and update
-- **Consistent Interface**: Standard HTTP calls with bearer token authentication
-- **Type-Safe API Layer**: TypeScript interfaces for all API operations and responses
-- **Unified API Client**: Single API client with comprehensive error handling
-
-### Implementation Details
-- **Base API Client**: `CentralizedApiService.ts` handles all HTTP communication
-- **Service-Specific Extensions**: Services like `UserDataService.ts` extend the base API client
-- **Operation Routing**: Each request includes an `operation` parameter that routes to the appropriate handler
-- **HTTP Methods**: GET for read operations, POST for create/update (with method parameter for logical PUT/PATCH/DELETE)
-- **Authentication**: Standard JWT bearer tokens from Cognito
-- **Error Handling**: Comprehensive error objects with status codes for conditional error handling
-
-### Validation Tools
-- `npm run validate-api`: Comprehensive API endpoint validation script
-- `npm run test-basic-connectivity`: Basic connectivity test for API Gateway
-- `npm run test-api`: Full API integration test
-
-This approach follows industry best practices for serverless architectures while maintaining simplicity and control. For more details, see [BACKEND_INTEGRATION_GUIDE.md](./documentation/BACKEND_INTEGRATION_GUIDE.md) and [API_QUICKSTART.md](./documentation/API_QUICKSTART.md).
-
-## Development Status & Next Actions

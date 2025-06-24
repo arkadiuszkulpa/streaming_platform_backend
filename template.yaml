@@ -10,28 +10,117 @@ Parameters:
       - dev
       - prod
     Default: dev
+    
+  InfraStackName:
+    Type: String
+    Description: Name of the deployed infrastructure stack to reference
+    Default: myai4-infrastructure
+
+Conditions:
+  IsDev: !Equals [!Ref Environment, dev]
+  IsProd: !Equals [!Ref Environment, prod]
+
+# Mappings for environment-specific configuration
+Mappings:
+  EnvironmentConfig:
+    dev:
+      LocalOrigins: "http://localhost:5173,http://localhost:3000"
+    prod:
+      CustomDomains: "https://myai4.co.uk,https://www.myai4.co.uk,https://myai4stream.co.uk,https://www.myai4stream.co.uk,https://myai4stream.com,https://www.myai4stream.com"
 
 Globals:
   Function:
     Timeout: 10
     Runtime: python3.12
     MemorySize: 256
+    Environment:
+      Variables:
+        # Dynamic CORS origins based on environment
+        ALLOWED_ORIGINS: !Join 
+          - ','
+          - - !If 
+              - IsDev
+              - !FindInMap [EnvironmentConfig, dev, LocalOrigins]
+              - !FindInMap [EnvironmentConfig, prod, CustomDomains]
+            - !Sub
+              - "https://${CloudFrontDomain}"
+              - CloudFrontDomain:
+                  Fn::ImportValue: !Sub "${InfraStackName}-${Environment}-CloudFrontDomainName"
     Tags:
       Environment: !Ref Environment
       Project: !Ref AWS::StackName
 
-Resources:
+Resources:  
   ####################################
   # API Gateway
-  ####################################
-  
-  ####################################
-  # API Gateway
-  ####################################
+  ####################################  
   ApiGateway:
     Type: AWS::Serverless::Api
     Properties:
       StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token'"
+        # Dynamically combine local origins with CloudFront domain based on environment
+        AllowOrigin:
+          !Join
+            - ""
+            - - "'"
+              - !Join
+                - ","
+                - - !If 
+                    - IsDev
+                    - !FindInMap [EnvironmentConfig, dev, LocalOrigins]
+                    - !FindInMap [EnvironmentConfig, prod, CustomDomains]
+                  - !Sub
+                    - "https://${CloudFrontDomain}"
+                    - CloudFrontDomain:
+                        Fn::ImportValue: !Sub "${InfraStackName}-${Environment}-CloudFrontDomainName"
+              - "'"
+        AllowCredentials: true
+      GatewayResponses:
+        DEFAULT_4XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin:
+                !Join
+                  - ""
+                  - - "'"
+                    - !Join
+                      - ","
+                      - - !If 
+                          - IsDev
+                          - !FindInMap [EnvironmentConfig, dev, LocalOrigins]
+                          - !FindInMap [EnvironmentConfig, prod, CustomDomains]
+                        - !Sub
+                          - "https://${CloudFrontDomain}"
+                          - CloudFrontDomain:
+                              Fn::ImportValue: !Sub "${InfraStackName}-${Environment}-CloudFrontDomainName"
+                    - "'"
+              Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              Access-Control-Allow-Credentials: "'true'"
+        DEFAULT_5XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin:
+                !Join
+                  - ""
+                  - - "'"
+                    - !Join
+                      - ","
+                      - - !If 
+                          - IsDev
+                          - !FindInMap [EnvironmentConfig, dev, LocalOrigins]
+                          - !FindInMap [EnvironmentConfig, prod, CustomDomains]
+                        - !Sub
+                          - "https://${CloudFrontDomain}"
+                          - CloudFrontDomain:
+                              Fn::ImportValue: !Sub "${InfraStackName}-${Environment}-CloudFrontDomainName"
+                    - "'"
+              Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              Access-Control-Allow-Credentials: "'true'"
 
   ####################################
   # IAM Roles

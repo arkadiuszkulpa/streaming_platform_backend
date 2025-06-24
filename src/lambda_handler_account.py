@@ -9,12 +9,16 @@ import os
 import json
 import boto3
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from botocore.exceptions import ClientError
 
 # Initialize AWS resources
 dynamodb = boto3.resource('dynamodb')
 ssm = boto3.client('ssm')
+
+# Get allowed origins from environment variables
+# This is set via CloudFormation in the function environment
+ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', '').split(',')
 
 # Environment variables - populated from CloudFormation template
 PROFILE_TABLE = os.environ.get('PROFILE_TABLE')  # This points to the ProfileTable resource
@@ -158,27 +162,64 @@ def handle_test(data: Dict[str, Any]) -> Dict[str, Any]:
         'messages': messages
     }
 
-def create_response(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:
-    """Create an API Gateway response object"""
-    return {
+def is_origin_allowed(origin: str) -> bool:
+    """Check if the provided origin is allowed"""
+    if not origin:
+        return False
+        
+    # Strip any trailing slash for comparison
+    if origin.endswith('/'):
+        origin = origin[:-1]
+        
+    # Direct match check
+    if origin in ALLOWED_ORIGINS:
+        return True
+        
+    # Handle wildcard domains like *.cloudfront.net
+    for allowed_origin in ALLOWED_ORIGINS:
+        if allowed_origin.startswith('https://*.'):
+            # Extract the domain suffix pattern (e.g., 'cloudfront.net')
+            domain_suffix = allowed_origin[10:]  # Remove 'https://*.' prefix
+            
+            # Check if origin matches the pattern
+            if origin.startswith('https://') and origin[8:].endswith(domain_suffix):
+                return True
+                
+    return False
+
+def create_response(status_code: int, body: Dict[str, Any], origin: Optional[str] = None) -> Dict[str, Any]:
+    """Create an API Gateway response object with proper CORS headers"""
+    response = {
         'statusCode': status_code,
         'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',  # For CORS support
-            'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-            'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+            'Content-Type': 'application/json'
         },
         'body': json.dumps(body)
     }
+    
+    # If origin is provided and allowed, add CORS headers with specific origin
+    if origin and is_origin_allowed(origin):
+        response['headers'].update({
+            'Access-Control-Allow-Origin': origin,  # Echo back the specific allowed origin
+            'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token',
+            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+            'Access-Control-Allow-Credentials': 'true'
+        })
+    
+    return response
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Centralized Lambda handler for MyAI4 ecosystem operations
     """
     try:
+        # Extract origin from request headers (case-insensitive)
+        headers = {k.lower(): v for k, v in event.get('headers', {}).items()}
+        origin = headers.get('origin')
+        
         # Check for OPTIONS request (CORS preflight)
         if event.get('httpMethod') == 'OPTIONS':
-            return create_response(200, {'message': 'CORS preflight successful'})
+            return create_response(200, {'message': 'CORS preflight successful'}, origin)
             
         # Parse the operation from query parameters or request body
         http_method = event.get('httpMethod', 'GET')
@@ -195,8 +236,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             data = body.get('data', {})
             
         if not operation:
-            return create_response(400, {'error': 'Operation parameter is required'})
-              # Route to appropriate handler
+            return create_response(400, {'error': 'Operation parameter is required'}, origin)
+              
+        # Route to appropriate handler
         if operation == 'test':
             result = handle_test(data)
         elif operation == 'getAccount':
@@ -207,19 +249,19 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             result = handle_create_account(data)
         else:            
             result = {'error': f"Unknown operation: {operation}"}
-            return create_response(400, result)
+            return create_response(400, result, origin)
         
         if result.get('statusCode'):
             # If result already has a statusCode, use it
             status_code = result.pop('statusCode')
-            return create_response(status_code, result)
+            return create_response(status_code, result, origin)
         else:
             # Default to 200 OK
-            return create_response(200, result)
+            return create_response(200, result, origin)
         
-    except Exception as e:
+    except Exception as e:        
         print(f"Error in lambda_handler: {str(e)}")
-        return create_response(500, {'error': 'Internal server error', 'details': str(e)})
+        return create_response(500, {'error': 'Internal server error', 'details': str(e)}, origin)
 
 
 # Removed SSM parameter functions and getter functions for environment variables

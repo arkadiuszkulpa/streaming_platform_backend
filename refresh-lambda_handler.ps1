@@ -1,104 +1,133 @@
-# Quick Lambda code refresh script for main API Lambda (lambda_handler.py)
+# Lambda code refresh script for multiple API Lambda functions
 param(
-    [string]$dev = "myai4-backend-dev",
-    [string]$prod = "myai4-backend-prod"
+    [string]$environment = "dev",  # Default to dev environment
+    [string]$stackName = "myai4-backend-dev", # Default stack name
+    [string]$lambdaName = "all"    # Default to update all lambdas, can specify individual lambda
 )
 
 $ErrorActionPreference = "Stop"
 
 # Configuration
 $region = "eu-west-2"
-$lambdaSourceFile = "src/lambda_handler.py"
-$zipFile = "lambda_handler.zip"
+$sourceDir = "src"
+$zipDir = "temp_zip"
+$zipBucket = "lambda-artifacts-$region-$((aws sts get-caller-identity --query Account --output text))"
 
-# Stack names - set these to match your actual CloudFormation stack names
-$devStackName = $dev
-$prodStackName = $prod
-
-Write-Host "Starting Lambda handler code refresh..."
-
-# Get AWS Account ID
-$accountId = (aws sts get-caller-identity --query Account --output text)
-$bucketName = "lambda-artifacts-$region-$accountId"
-
-Write-Host "Configuration:"
-Write-Host "   Region: $region"
-Write-Host "   Account ID: $accountId"
-Write-Host "   Bucket: $bucketName"
-
-# Step 1: Package Lambda function
-Write-Host "Packaging Lambda function..."
-if (Test-Path $zipFile) {
-    Remove-Item $zipFile
+# Define lambda functions from template.yaml
+$lambdaFunctions = @{
+    "account" = "lambda_handler_account.py"
+    "profile" = "lambda_handler_profile.py"
+    "profile-settings" = "lambda_handler_profile_settings.py"
+    "profile-ai" = "lambda_handler_profile_ai.py"
+    "movie" = "lambda_handler_movie.py"
+    "subscription" = "lambda_handler_subscription.py"
+    "watchlist" = "lambda_handler_watchlist.py"
 }
-Compress-Archive -Path $lambdaSourceFile -DestinationPath $zipFile -Update
-Write-Host "Created: $zipFile"
 
-# Step 2: Create bucket if needed (ignore errors if exists)
-Write-Host "Ensuring S3 bucket exists..."
+Write-Host "Starting Lambda handler code refresh for stack: $stackName (Environment: $environment)" -ForegroundColor Cyan
+
+# Create temporary directory for zip files if it doesn't exist
+if (-not (Test-Path $zipDir)) {
+    New-Item -ItemType Directory -Path $zipDir | Out-Null
+}
+
+# Create S3 bucket if needed (ignore errors if exists)
+Write-Host "Ensuring S3 bucket exists: $zipBucket"
 try {
     aws s3api create-bucket `
-      --bucket $bucketName `
+      --bucket $zipBucket `
       --region $region `
       --create-bucket-configuration LocationConstraint=$region 2>$null
-    Write-Host "Created bucket: $bucketName"
+    Write-Host "Created bucket: $zipBucket" -ForegroundColor Green
 } catch {
-    Write-Host "Bucket already exists: $bucketName"
+    Write-Host "Bucket already exists: $zipBucket" -ForegroundColor Gray
 }
 
-# Step 3: Upload to S3
-Write-Host "Uploading to S3..."
-aws s3 cp $zipFile "s3://$bucketName/$zipFile" --region $region
-Write-Host "Uploaded to S3"
-
-# Step 4: Update Lambda function code with versioning
-Write-Host "Updating Lambda function code..."
-
-# Set your Lambda function names here
-$prodFunctionName = "centralised-api-$prodStackName"
-$devFunctionName = "centralised-api-$devStackName"
-
-Write-Host "Using Lambda function names:"
-Write-Host "   Dev: $devFunctionName"
-Write-Host "   Prod: $prodFunctionName"
-
-# Update dev function if it exists
-try {
-    Write-Host "Updating dev function: $devFunctionName..."
-    aws lambda update-function-code `
-      --function-name $devFunctionName `
-      --s3-bucket $bucketName `
-      --s3-key $zipFile `
-      --publish `
-      --region $region
-    $version = (aws lambda get-function --function-name $devFunctionName --region $region --query 'Configuration.Version' --output text)
-    Write-Host "Dev Lambda function updated to version: $version" -ForegroundColor Green
-} catch {
-    Write-Host "Error: Dev function not found or could not be updated" -ForegroundColor Red
-    Write-Host "Error details: $_" -ForegroundColor Yellow
+# Process specified lambda or all lambdas
+$lambdasToProcess = @()
+if ($lambdaName -eq "all") {
+    $lambdasToProcess = $lambdaFunctions.Keys
+    Write-Host "Processing ALL Lambda functions" -ForegroundColor Yellow
+} elseif ($lambdaFunctions.ContainsKey($lambdaName)) {
+    $lambdasToProcess = @($lambdaName)
+    Write-Host "Processing SINGLE Lambda function: $lambdaName" -ForegroundColor Yellow
+} else {
+    Write-Host "Error: Lambda function '$lambdaName' not found. Available functions:" -ForegroundColor Red
+    $lambdaFunctions.Keys | ForEach-Object { Write-Host "  - $_" }
+    exit 1
 }
 
-# Update prod function if it exists
-try {
-    Write-Host "Updating prod function: $prodFunctionName..."
-    aws lambda update-function-code `
-      --function-name $prodFunctionName `
-      --s3-bucket $bucketName `
-      --s3-key $zipFile `
-      --publish `
-      --region $region
-    $version = (aws lambda get-function --function-name $prodFunctionName --region $region --query 'Configuration.Version' --output text)
-    Write-Host "Prod Lambda function updated to version: $version" -ForegroundColor Green
-} catch {
-    Write-Host "Error: Prod function not found or could not be updated" -ForegroundColor Red
-    Write-Host "Error details: $_" -ForegroundColor Yellow
+# Process each lambda function
+foreach ($lambda in $lambdasToProcess) {
+    $handlerFile = $lambdaFunctions[$lambda]
+    $zipFile = "$zipDir/$lambda.zip"
+    
+    Write-Host "`n===== Processing Lambda: $lambda ($handlerFile) =====" -ForegroundColor Cyan
+    
+    # Step 1: Package Lambda function
+    Write-Host "Packaging Lambda function..."
+    if (Test-Path $zipFile) {
+        Remove-Item $zipFile
+    }
+    
+    # Create zip file with all required dependencies
+    Compress-Archive -Path "$sourceDir/$handlerFile" -DestinationPath $zipFile -Update
+    Write-Host "Created: $zipFile" -ForegroundColor Gray
+    
+    # Step 2: Upload to S3
+    Write-Host "Uploading to S3..."
+    aws s3 cp $zipFile "s3://$zipBucket/$lambda.zip" --region $region
+    Write-Host "Uploaded to S3: s3://$zipBucket/$lambda.zip" -ForegroundColor Gray
+    
+    # Step 3: Update Lambda function code
+    $functionName = "${lambda}-api-$stackName"
+    
+    try {
+        Write-Host "Updating function: $functionName..."
+        aws lambda update-function-code `
+          --function-name $functionName `
+          --s3-bucket $zipBucket `
+          --s3-key "$lambda.zip" `
+          --publish `
+          --region $region
+        $version = (aws lambda get-function --function-name $functionName --region $region --query 'Configuration.Version' --output text)
+        Write-Host "✅ Lambda function updated to version: $version" -ForegroundColor Green
+    } catch {
+        Write-Host "❌ Error: Function not found or could not be updated: $functionName" -ForegroundColor Red
+        Write-Host "Error details: $_" -ForegroundColor DarkYellow
+    }
 }
 
-# Cleanup - Comment out if you want to keep the zip file
-# Remove-Item $zipFile
-Write-Host "Finished updating Lambda handler function" -ForegroundColor Green
-Write-Host "To test the API, use the following command:"
-Write-Host '$apiUrl = aws cloudformation describe-stacks --stack-name ' -NoNewline
-Write-Host $devStackName -ForegroundColor Cyan -NoNewline
+# Cleanup
+Write-Host "`nCleaning up temporary files..." -ForegroundColor Gray
+Remove-Item -Path $zipDir -Recurse -Force
+
+Write-Host "`n✅ Finished updating Lambda handler functions" -ForegroundColor Green
+Write-Host "`nTo test the APIs, use the following commands:" -ForegroundColor Yellow
+Write-Host '$apiBaseUrl = aws cloudformation describe-stacks --stack-name ' -NoNewline
+Write-Host $stackName -ForegroundColor Cyan -NoNewline
 Write-Host ' --query "Stacks[0].Outputs[?OutputKey==''ApiUrl''].OutputValue" --output text'
-Write-Host 'Invoke-RestMethod -Uri "$apiUrl`?operation=test" -Method GET | ConvertTo-Json -Depth 10'
+Write-Host 'Invoke-RestMethod -Uri "${apiBaseUrl}/account?operation=test" -Method GET | ConvertTo-Json -Depth 10'
+Write-Host ""
+Write-Host "To update a single lambda function, specify the name:" -ForegroundColor Yellow
+Write-Host ".\refresh-lambda_handler.ps1 -environment $environment -stackName $stackName -lambdaName account" -ForegroundColor Cyan
+        } catch {
+            Write-Host "❌ Error: PROD function not found or could not be updated" -ForegroundColor Red
+            Write-Host "Error details: $_" -ForegroundColor DarkYellow
+        }
+    }
+}
+
+# Cleanup
+Write-Host "`nCleaning up temporary files..." -ForegroundColor Gray
+Remove-Item -Path $zipDir -Recurse -Force
+
+Write-Host "`n✅ Finished updating Lambda handler functions" -ForegroundColor Green
+Write-Host "`nTo test the APIs, use the following commands:" -ForegroundColor Yellow
+Write-Host '$apiBaseUrl = aws cloudformation describe-stacks --stack-name ' -NoNewline
+Write-Host $dev -ForegroundColor Cyan -NoNewline
+Write-Host ' --query "Stacks[0].Outputs[?OutputKey==''ApiUrl''].OutputValue" --output text'
+Write-Host 'Invoke-RestMethod -Uri "${apiBaseUrl}/account?operation=test" -Method GET | ConvertTo-Json -Depth 10'
+Write-Host ""
+Write-Host "To update a single lambda function, specify the name:" -ForegroundColor Yellow
+Write-Host ".\refresh-lambda_handler.ps1 -dev $dev -prod $prod -lambdaName account" -ForegroundColor Cyan
