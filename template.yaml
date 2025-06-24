@@ -63,7 +63,7 @@ Resources:
         Authorizers:
           CognitoAuthorizer:
             UserPoolArn: !ImportValue 
-              'Fn::Sub': '${InfraStackName}-${Environment}-UserPoolArn'
+              'Fn::Sub': '${InfraStackName}-UserPoolArn'
             Identity:
               Header: Authorization
               ValidationExpression: Bearer.*
