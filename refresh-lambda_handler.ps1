@@ -89,7 +89,10 @@ foreach ($lambda in $lambdasToProcess) {
           --s3-bucket $zipBucket `
           --s3-key "$lambda.zip" `
           --publish `
-          --region $region
+          --region $region `
+          --output text | Out-Null # Suppress verbose output from AWS CLI
+        
+        # Get just the version number instead of full function definition
         $version = (aws lambda get-function --function-name $functionName --region $region --query 'Configuration.Version' --output text)
         Write-Host "✅ Lambda function updated to version: $version" -ForegroundColor Green
     } catch {
@@ -111,23 +114,3 @@ Write-Host 'Invoke-RestMethod -Uri "${apiBaseUrl}/account?operation=test" -Metho
 Write-Host ""
 Write-Host "To update a single lambda function, specify the name:" -ForegroundColor Yellow
 Write-Host ".\refresh-lambda_handler.ps1 -environment $environment -stackName $stackName -lambdaName account" -ForegroundColor Cyan
-        } catch {
-            Write-Host "❌ Error: PROD function not found or could not be updated" -ForegroundColor Red
-            Write-Host "Error details: $_" -ForegroundColor DarkYellow
-        }
-    }
-}
-
-# Cleanup
-Write-Host "`nCleaning up temporary files..." -ForegroundColor Gray
-Remove-Item -Path $zipDir -Recurse -Force
-
-Write-Host "`n✅ Finished updating Lambda handler functions" -ForegroundColor Green
-Write-Host "`nTo test the APIs, use the following commands:" -ForegroundColor Yellow
-Write-Host '$apiBaseUrl = aws cloudformation describe-stacks --stack-name ' -NoNewline
-Write-Host $dev -ForegroundColor Cyan -NoNewline
-Write-Host ' --query "Stacks[0].Outputs[?OutputKey==''ApiUrl''].OutputValue" --output text'
-Write-Host 'Invoke-RestMethod -Uri "${apiBaseUrl}/account?operation=test" -Method GET | ConvertTo-Json -Depth 10'
-Write-Host ""
-Write-Host "To update a single lambda function, specify the name:" -ForegroundColor Yellow
-Write-Host ".\refresh-lambda_handler.ps1 -dev $dev -prod $prod -lambdaName account" -ForegroundColor Cyan

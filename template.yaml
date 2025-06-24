@@ -58,6 +58,15 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       StageName: !Ref Environment
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !ImportValue 
+              'Fn::Sub': '${InfraStackName}-${Environment}-UserPoolArn'
+            Identity:
+              Header: Authorization
+              ValidationExpression: Bearer.*
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token'"
@@ -226,6 +235,7 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /profile
             Method: ANY
+            # Auth section removed - DefaultAuthorizer at API Gateway level is sufficient
             
   # Profile Settings Lambda Function
   ProfileSettingsApiFunction:
