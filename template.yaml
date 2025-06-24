@@ -45,7 +45,7 @@ Globals:
             - !Sub
               - "https://${CloudFrontDomain}"
               - CloudFrontDomain:
-                  Fn::ImportValue: !Sub "${InfraStackName}-${Environment}-CloudFrontDomainName"
+                  Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
     Tags:
       Environment: !Ref Environment
       Project: !Ref AWS::StackName
@@ -75,7 +75,7 @@ Resources:
                   - !Sub
                     - "https://${CloudFrontDomain}"
                     - CloudFrontDomain:
-                        Fn::ImportValue: !Sub "${InfraStackName}-${Environment}-CloudFrontDomainName"
+                        Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
               - "'"
         AllowCredentials: true
       GatewayResponses:
@@ -95,7 +95,7 @@ Resources:
                         - !Sub
                           - "https://${CloudFrontDomain}"
                           - CloudFrontDomain:
-                              Fn::ImportValue: !Sub "${InfraStackName}-${Environment}-CloudFrontDomainName"
+                              Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
                     - "'"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
@@ -116,7 +116,7 @@ Resources:
                         - !Sub
                           - "https://${CloudFrontDomain}"
                           - CloudFrontDomain:
-                              Fn::ImportValue: !Sub "${InfraStackName}-${Environment}-CloudFrontDomainName"
+                              Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
                     - "'"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
