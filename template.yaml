@@ -85,63 +85,49 @@ Resources:
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token'"
-        # Dynamically combine local origins with CloudFront domain based on environment
-        AllowOrigin:
-          !Join
-            - ""
-            - - "'"
-              - !Join
-                - ","
-                - - !If 
-                    - IsDev
-                    - !FindInMap [EnvironmentConfig, dev, LocalOrigins]
-                    - !FindInMap [EnvironmentConfig, prod, CustomDomains]
-                  - !Sub
-                    - "https://${CloudFrontDomain}"
-                    - CloudFrontDomain:
-                        Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
-              - "'"
+        # Use a simple string for local development (what we're testing now)
+        AllowOrigin: "'http://localhost:5173,http://localhost:3000'"
         AllowCredentials: true
       GatewayResponses:
         DEFAULT_4XX:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin:
-                !Join
-                  - ""
-                  - - "'"
-                    - !Join
-                      - ","
-                      - - !If 
-                          - IsDev
-                          - !FindInMap [EnvironmentConfig, dev, LocalOrigins]
-                          - !FindInMap [EnvironmentConfig, prod, CustomDomains]
-                        - !Sub
-                          - "https://${CloudFrontDomain}"
-                          - CloudFrontDomain:
-                              Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
-                    - "'"
+              Access-Control-Allow-Origin: "'http://localhost:5173,http://localhost:3000'"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         DEFAULT_5XX:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin:
-                !Join
-                  - ""
-                  - - "'"
-                    - !Join
-                      - ","
-                      - - !If 
-                          - IsDev
-                          - !FindInMap [EnvironmentConfig, dev, LocalOrigins]
-                          - !FindInMap [EnvironmentConfig, prod, CustomDomains]
-                        - !Sub
-                          - "https://${CloudFrontDomain}"
-                          - CloudFrontDomain:
-                              Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
-                    - "'"
+              Access-Control-Allow-Origin: "'http://localhost:5173,http://localhost:3000'"
+              Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              Access-Control-Allow-Credentials: "'true'"
+        UNAUTHORIZED:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'http://localhost:5173,http://localhost:3000'"
+              Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              Access-Control-Allow-Credentials: "'true'"
+        ACCESS_DENIED:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'http://localhost:5173,http://localhost:3000'"
+              Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              Access-Control-Allow-Credentials: "'true'"
+        RESOURCE_NOT_FOUND:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'http://localhost:5173,http://localhost:3000'"
+              Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              Access-Control-Allow-Credentials: "'true'"
+        INVALID_API_KEY:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'http://localhost:5173,http://localhost:3000'"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
@@ -220,6 +206,34 @@ Resources:
             Path: /account
             Method: ANY
             
+  # CORS Handler Function for OPTIONS requests
+  CorsHandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "cors-handler-${AWS::StackName}"
+      CodeUri: src/
+      # We'll create a simple handler that just returns proper CORS headers
+      Handler: lambda_handler_cors.lambda_handler
+      Runtime: python3.12
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        # Handle OPTIONS for profile endpoint
+        ProfileOptionsEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /profile
+            Method: OPTIONS
+            Auth: NONE
+        # Handle OPTIONS for all other endpoints as well
+        AllOptionsEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /{proxy+}
+            Method: OPTIONS
+            Auth: NONE
+
   # Profile Lambda Function
   ProfileApiFunction:
     Type: AWS::Serverless::Function
@@ -244,6 +258,7 @@ Resources:
           PROFILE_TABLE: !Ref ProfileTable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
       Events:
+        # Handle all methods except OPTIONS
         ApiEvent:
           Type: Api
           Properties:
