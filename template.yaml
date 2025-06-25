@@ -78,8 +78,8 @@ Resources:
         Empty:
           type: object
       MethodSettings:
-        - ResourcePath: '/*'
-          HttpMethod: OPTIONS
+        - ResourcePath: '*'
+          HttpMethod: '*'
           ThrottlingBurstLimit: 5
           ThrottlingRateLimit: 10
       Cors:
