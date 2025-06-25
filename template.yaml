@@ -77,11 +77,11 @@ Resources:
       Models:
         Empty:
           type: object
-      MethodSettings:
-        - ResourcePath: '*'
-          HttpMethod: '*'
-          ThrottlingBurstLimit: 5
-          ThrottlingRateLimit: 10
+      # Stage settings at the API level
+      MinimumCompressionSize: 0
+      BinaryMediaTypes:
+        - "multipart/form-data"
+      DisableExecuteApiEndpoint: false
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token'"
