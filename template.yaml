@@ -60,6 +60,7 @@ Resources:
       StageName: !Ref Environment
       Auth:
         DefaultAuthorizer: CognitoAuthorizer
+        AddDefaultAuthorizerToCorsPreflight: false
         # Exempt OPTIONS methods from authorization (needed for CORS preflight requests)
         Authorizers:
           CognitoAuthorizer:
@@ -71,50 +72,16 @@ Resources:
             Identity:
               Header: Authorization
               ValidationExpression: Bearer.*
-      # Add a resource policy to allow OPTIONS methods without authorization
+      # Configure API Gateway to handle OPTIONS method and CORS
       OpenApiVersion: 3.0.1
-      DefinitionBody:
-        'Fn::Transform':
-          Name: AWS::Include
-          Parameters:
-            Location: !Sub
-              - |
-                {"swagger": "2.0",
-                 "paths": {
-                   "/{proxy+}": {
-                     "options": {
-                       "responses": {},
-                       "x-amazon-apigateway-integration": {
-                         "type": "mock",
-                         "requestTemplates": {"application/json": "{\"statusCode\":200}"},
-                         "responses": {
-                           "default": {
-                             "statusCode": "200",
-                             "responseParameters": {
-                               "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE,OPTIONS'",
-                               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token'",
-                               "method.response.header.Access-Control-Allow-Origin": "'${AllowedOrigins}'",
-                               "method.response.header.Access-Control-Allow-Credentials": "'true'"
-                             },
-                             "responseTemplates": {"application/json": "{}"}
-                           }
-                         }
-                       },
-                       "security": []
-                     }
-                   }
-                 }
-                }
-              - AllowedOrigins: !Join
-                  - ","
-                  - - !If 
-                      - IsDev
-                      - !FindInMap [EnvironmentConfig, dev, LocalOrigins]
-                      - !FindInMap [EnvironmentConfig, prod, CustomDomains]
-                    - !Sub
-                      - "https://${CloudFrontDomain}"
-                      - CloudFrontDomain:
-                          Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
+      Models:
+        Empty:
+          type: object
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: OPTIONS
+          ThrottlingBurstLimit: 5
+          ThrottlingRateLimit: 10
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token'"
