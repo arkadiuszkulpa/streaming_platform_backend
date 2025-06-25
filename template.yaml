@@ -60,6 +60,7 @@ Resources:
       StageName: !Ref Environment
       Auth:
         DefaultAuthorizer: CognitoAuthorizer
+        # Exempt OPTIONS methods from authorization (needed for CORS preflight requests)
         Authorizers:
           CognitoAuthorizer:
             # Construct the ARN from the UserPoolId which is what the infra stack exports
@@ -70,6 +71,50 @@ Resources:
             Identity:
               Header: Authorization
               ValidationExpression: Bearer.*
+      # Add a resource policy to allow OPTIONS methods without authorization
+      OpenApiVersion: 3.0.1
+      DefinitionBody:
+        'Fn::Transform':
+          Name: AWS::Include
+          Parameters:
+            Location: !Sub
+              - |
+                {"swagger": "2.0",
+                 "paths": {
+                   "/{proxy+}": {
+                     "options": {
+                       "responses": {},
+                       "x-amazon-apigateway-integration": {
+                         "type": "mock",
+                         "requestTemplates": {"application/json": "{\"statusCode\":200}"},
+                         "responses": {
+                           "default": {
+                             "statusCode": "200",
+                             "responseParameters": {
+                               "method.response.header.Access-Control-Allow-Methods": "'GET,POST,PUT,DELETE,OPTIONS'",
+                               "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token'",
+                               "method.response.header.Access-Control-Allow-Origin": "'${AllowedOrigins}'",
+                               "method.response.header.Access-Control-Allow-Credentials": "'true'"
+                             },
+                             "responseTemplates": {"application/json": "{}"}
+                           }
+                         }
+                       },
+                       "security": []
+                     }
+                   }
+                 }
+                }
+              - AllowedOrigins: !Join
+                  - ","
+                  - - !If 
+                      - IsDev
+                      - !FindInMap [EnvironmentConfig, dev, LocalOrigins]
+                      - !FindInMap [EnvironmentConfig, prod, CustomDomains]
+                    - !Sub
+                      - "https://${CloudFrontDomain}"
+                      - CloudFrontDomain:
+                          Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token'"
