@@ -85,49 +85,51 @@ Resources:
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
-        # Use a simple string for local development (what we're testing now)
-        AllowOrigin: "'*'"
+        # When AllowCredentials is true, origins must be explicitly listed (not '*')
+        # For development, use localhost origins
+        AllowOrigin: "'http://localhost:5173,http://localhost:3000'"
         AllowCredentials: true
+      # Gateway responses with CORS headers for errors
       GatewayResponses:
         DEFAULT_4XX:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Origin: "'http://localhost:5173,http://localhost:3000'"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         DEFAULT_5XX:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Origin: "'http://localhost:5173,http://localhost:3000'"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         UNAUTHORIZED:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Origin: "'http://localhost:5173,http://localhost:3000'"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         ACCESS_DENIED:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Origin: "'http://localhost:5173,http://localhost:3000'"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         RESOURCE_NOT_FOUND:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Origin: "'http://localhost:5173,http://localhost:3000'"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         INVALID_API_KEY:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Origin: "'http://localhost:5173,http://localhost:3000'"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
