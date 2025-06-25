@@ -212,27 +212,18 @@ Resources:
     Properties:
       FunctionName: !Sub "cors-handler-${AWS::StackName}"
       CodeUri: src/
-      # We'll create a simple handler that just returns proper CORS headers
+      # Simple handler for returning CORS headers on the profile endpoint
       Handler: lambda_handler_cors.lambda_handler
       Runtime: python3.12
       Role: !GetAtt LambdaExecutionRole.Arn
       Events:
-        # Handle OPTIONS for profile endpoint
+        # Handle OPTIONS for profile endpoint only
         ProfileOptionsEvent:
           Type: Api
           Properties:
             RestApiId: !Ref ApiGateway
             Path: /profile
             Method: OPTIONS
-            Auth: NONE
-        # Handle OPTIONS for all other endpoints as well
-        AllOptionsEvent:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ApiGateway
-            Path: /{proxy+}
-            Method: OPTIONS
-            Auth: NONE
 
   # Profile Lambda Function
   ProfileApiFunction:
