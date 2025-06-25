@@ -26,9 +26,8 @@ ACCOUNT_TABLE = os.environ.get('ACCOUNT_TABLE')  # Table for user accounts (impo
 SUBSCRIPTIONS_TABLE = os.environ.get('SUBSCRIPTION_TABLE')
 USER_USAGE_TABLE = os.environ.get('USER_USAGE_TABLE')
 
-# Cognito resources imported from infrastructure stack
-USER_POOL_ID = os.environ.get('USER_POOL_ID')
-IDENTITY_POOL_ID = os.environ.get('IDENTITY_POOL_ID')
+# Removing Cognito resources as auth will be handled by API Gateway
+# USER_POOL_ID and IDENTITY_POOL_ID are not needed anymore
 
 # Mock RapidAPI key function - remove when integrating
 def get_rapidapi_key():
@@ -156,6 +155,14 @@ def is_origin_allowed(origin: str) -> bool:
     """Check if the provided origin is allowed"""
     if not origin:
         return False
+    
+    # Environment check for development mode
+    env = os.environ.get('ENVIRONMENT', 'dev')
+    
+    # Always allow localhost origins in development environment
+    if env.lower() in ('dev', 'development'):
+        if 'localhost' in origin or '127.0.0.1' in origin:
+            return True
         
     # Strip any trailing slash for comparison
     if origin.endswith('/'):
@@ -179,6 +186,7 @@ def is_origin_allowed(origin: str) -> bool:
 
 def create_response(status_code: int, body: Dict[str, Any], origin: Optional[str] = None) -> Dict[str, Any]:
     """Create an API Gateway response object with proper CORS headers"""
+    # Since API Gateway will handle authentication, we just focus on formatting the response
     response = {
         'statusCode': status_code,
         'headers': {
@@ -187,11 +195,24 @@ def create_response(status_code: int, body: Dict[str, Any], origin: Optional[str
         'body': json.dumps(body)
     }
     
-    # If origin is provided and allowed, add CORS headers with specific origin
-    if origin and is_origin_allowed(origin):
+    # For development, always add CORS headers
+    # In production, we'll check the origin
+    env = os.environ.get('ENVIRONMENT', 'dev')
+    
+    if env.lower() in ('dev', 'development'):
+        # In development, allow all origins for easier debugging
+        response['headers'].update({
+            'Access-Control-Allow-Origin': origin or '*',  # Echo back or use wildcard as fallback
+            'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With',
+            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+            'Access-Control-Allow-Credentials': 'true',
+            'Cache-Control': 'no-cache'  # Prevent CORS caching issues
+        })
+    elif origin and is_origin_allowed(origin):
+        # In production, only allow approved origins
         response['headers'].update({
             'Access-Control-Allow-Origin': origin,  # Echo back the specific allowed origin
-            'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token',
+            'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With',
             'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
             'Access-Control-Allow-Credentials': 'true'
         })
@@ -201,6 +222,7 @@ def create_response(status_code: int, body: Dict[str, Any], origin: Optional[str
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Centralized Lambda handler for MyAI4 ecosystem operations
+    Authentication is now fully handled by API Gateway
     """
     try:
         # Extract origin from request headers (case-insensitive)
@@ -209,7 +231,29 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Check for OPTIONS request (CORS preflight)
         if event.get('httpMethod') == 'OPTIONS':
-            return create_response(200, {'message': 'CORS preflight successful'}, origin)
+            # For OPTIONS requests, we need to handle everything manually
+            # to ensure proper CORS headers are returned
+            env = os.environ.get('ENVIRONMENT', 'dev')
+            allow_headers = 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'
+            
+            # Get specific requested headers if provided
+            requested_headers = headers.get('access-control-request-headers')
+            if requested_headers:
+                allow_headers = requested_headers
+            
+            response = {
+                'statusCode': 200,
+                'headers': {
+                    'Access-Control-Allow-Origin': origin or '*',
+                    'Access-Control-Allow-Headers': allow_headers,
+                    'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+                    'Access-Control-Allow-Credentials': 'true',
+                    'Access-Control-Max-Age': '86400',  # Cache preflight for 24 hours
+                    'Content-Type': 'application/json'
+                },
+                'body': json.dumps({'message': 'CORS preflight successful'})
+            }
+            return response
             
         # Parse the operation from query parameters or request body
         http_method = event.get('httpMethod', 'GET')
@@ -245,7 +289,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if not handler:
             return create_response(400, {'error': f'Unknown operation: {operation}'}, origin)
             
-        # Execute the handler
+        # Execute the handler - no authentication check as API Gateway handles it
         result = handler(data)
         return create_response(200, result, origin)
     except Exception as e:
