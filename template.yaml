@@ -403,6 +403,72 @@ Resources:
             Path: /watchlist
             Method: ANY
 
+  # Shared OPTIONS Lambda for CORS preflight
+  CorsOptionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "cors-options-${AWS::StackName}"
+      Handler: index.lambda_handler
+      Runtime: python3.12
+      InlineCode: |
+        def lambda_handler(event, context):
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Access-Control-Allow-Origin": "https://${CloudFrontDomain}",
+                    "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With",
+                    "Access-Control-Allow-Credentials": "true"
+                }
+            }
+      Environment:
+        Variables:
+          CloudFrontDomain: !ImportValue
+            'Fn::Sub': "${InfraStackName}-CloudFrontDomainName"
+      Events:
+        AccountOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /account
+            Method: OPTIONS
+        ProfileOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /profile
+            Method: OPTIONS
+        ProfileSettingsOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /profile-settings
+            Method: OPTIONS
+        ProfileAIOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /profile-ai
+            Method: OPTIONS
+        MovieOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /movie
+            Method: OPTIONS
+        SubscriptionOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /subscription
+            Method: OPTIONS
+        WatchlistOptions:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /watchlist
+            Method: OPTIONS
+
   ####################################
   # DynamoDB Tables - MyAI4 Ecosystem
   ####################################
