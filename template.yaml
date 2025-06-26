@@ -411,11 +411,13 @@ Resources:
       Handler: index.lambda_handler
       Runtime: python3.12
       InlineCode: |
+        import os
         def lambda_handler(event, context):
+            domain = os.environ.get("CloudFrontDomain")
             return {
                 "statusCode": 200,
                 "headers": {
-                    "Access-Control-Allow-Origin": "https://${CloudFrontDomain}",
+                    "Access-Control-Allow-Origin": f"https://{domain}",
                     "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
                     "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With",
                     "Access-Control-Allow-Credentials": "true"
@@ -468,6 +470,68 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /watchlist
             Method: OPTIONS
+
+  # Enable API Gateway logging (required for execution logs)
+  ApiGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !GetAtt ApiGatewayCloudWatchRole.Arn
+
+  ApiGatewayCloudWatchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "apigateway-cloudwatch-role-${AWS::StackName}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ApiGatewayLogsPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  ApiGatewayLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/apigateway/${AWS::StackName}-apigw-${Environment}"
+      RetentionInDays: 14
+
+  # Explicit Stage resource to enable execution logging
+  ApiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: !Ref Environment
+      Description: "Stage with execution logging enabled"
+      RestApiId: !Ref ApiGateway
+      DeploymentId: !Ref ApiGatewayDeployment
+      MethodSettings:
+        - DataTraceEnabled: true
+          HttpMethod: "*"
+          LoggingLevel: INFO
+          ResourcePath: "/*"
+          MetricsEnabled: true
+      AccessLogSetting:
+        DestinationArn: !GetAtt ApiGatewayLogGroup.Arn
+        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","caller":"$context.identity.caller","user":"$context.identity.user","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","resourcePath":"$context.resourcePath","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength"}'
+
+  # Force deployment to trigger stage creation
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - ApiGateway
+    Properties:
+      RestApiId: !Ref ApiGateway
+      StageName: "should-not-be-used" # Stage is managed by ApiGatewayStage
 
   ####################################
   # DynamoDB Tables - MyAI4 Ecosystem
