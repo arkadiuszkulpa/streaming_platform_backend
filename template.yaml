@@ -67,7 +67,13 @@ Resources:
             UserPoolArn: !Sub 
               - "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPoolId}"
               - UserPoolId: !ImportValue 
-                  'Fn::Sub': '${InfraStackName}-UserPoolId' 
+                  'Fn::Sub': '${InfraStackName}-UserPoolId'
+            # Configure scopes to make API Gateway accept access tokens
+            AuthorizationScopes:
+              - "aws.cognito.signin.user.admin"
+              - "openid"
+              - "profile"
+              - "email"
             Identity:
               Header: Authorization
               ValidationExpression: Bearer.*
