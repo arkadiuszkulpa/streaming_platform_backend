@@ -16,6 +16,12 @@ Parameters:
     Description: Name of the deployed infrastructure stack to reference
     Default: myai4-infrastructure
 
+  CloudFrontDomain:
+    Type: String
+    Description: CloudFront domain imported from infra stack
+    Default: !ImportValue
+      'Fn::Sub': "${InfraStackName}-CloudFrontDomainName"
+
 Conditions:
   IsDev: !Equals [!Ref Environment, dev]
   IsProd: !Equals [!Ref Environment, prod]
@@ -36,16 +42,7 @@ Globals:
     Environment:
       Variables:
         # Dynamic CORS origins based on environment
-        ALLOWED_ORIGINS: !Join 
-          - ','
-          - - !If 
-              - IsDev
-              - !FindInMap [EnvironmentConfig, dev, LocalOrigins]
-              - !FindInMap [EnvironmentConfig, prod, CustomDomains]
-            - !Sub
-              - "https://${CloudFrontDomain}"
-              - CloudFrontDomain:
-                  Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
+        ALLOWED_ORIGINS: !Sub "https://${CloudFrontDomain}"
     Tags:
       Environment: !Ref Environment
       Project: !Ref AWS::StackName
@@ -116,78 +113,54 @@ Resources:
                     responseParameters:
                       method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
                       method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
-                      method.response.header.Access-Control-Allow-Origin: !Sub
-                        - "https://${CloudFrontDomain}"
-                        - CloudFrontDomain:
-                            Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
+                      method.response.header.Access-Control-Allow-Origin: !Sub "'https://${CloudFrontDomain}'"
                       method.response.header.Access-Control-Allow-Credentials: "'true'"
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
-        AllowOrigin: !Sub
-          - "https://${CloudFrontDomain}"
-          - CloudFrontDomain:
-              Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
+        AllowOrigin: !Sub "'https://${CloudFrontDomain}'"
         AllowCredentials: true
       # Gateway responses with CORS headers for errors
       GatewayResponses:
         DEFAULT_4XX:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: !Sub
-                - "https://${CloudFrontDomain}"
-                - CloudFrontDomain:
-                    Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
+              Access-Control-Allow-Origin: !Sub "'https://${CloudFrontDomain}'"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         DEFAULT_5XX:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: !Sub
-                - "https://${CloudFrontDomain}"
-                - CloudFrontDomain:
-                    Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
+              Access-Control-Allow-Origin: !Sub "'https://${CloudFrontDomain}'"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         UNAUTHORIZED:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: !Sub
-                - "https://${CloudFrontDomain}"
-                - CloudFrontDomain:
-                    Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
+              Access-Control-Allow-Origin: !Sub "'https://${CloudFrontDomain}'"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         ACCESS_DENIED:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: !Sub
-                - "https://${CloudFrontDomain}"
-                - CloudFrontDomain:
-                    Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
+              Access-Control-Allow-Origin: !Sub "'https://${CloudFrontDomain}'"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         RESOURCE_NOT_FOUND:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: !Sub
-                - "https://${CloudFrontDomain}"
-                - CloudFrontDomain:
-                    Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
+              Access-Control-Allow-Origin: !Sub "'https://${CloudFrontDomain}'"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         INVALID_API_KEY:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: !Sub
-                - "https://${CloudFrontDomain}"
-                - CloudFrontDomain:
-                    Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
+              Access-Control-Allow-Origin: !Sub "'https://${CloudFrontDomain}'"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
@@ -252,11 +225,11 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           # Direct references to infrastructure resources via CloudFormation exports
           USER_POOL_ID: 
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-UserPoolId"
+            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
           IDENTITY_POOL_ID:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-IdentityPoolId"
+            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
           ACCOUNT_TABLE:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-AccountTable"
+            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
       Events:
         ApiEvent:
@@ -280,13 +253,13 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           # Use the imported user pool ID directly
           USER_POOL_ID:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-UserPoolId"
+            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
           # The identity pool ID will also be imported directly
           IDENTITY_POOL_ID:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-IdentityPoolId"  
+            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"  
           # Import AccountTable from infrastructure stack
           ACCOUNT_TABLE:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-AccountTable"
+            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
           PROFILE_TABLE: !Ref ProfileTable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
       Events:
@@ -313,11 +286,11 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           # Direct references to infrastructure resources via CloudFormation exports
           USER_POOL_ID:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-UserPoolId"
+            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
           IDENTITY_POOL_ID:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-IdentityPoolId"
+            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
           ACCOUNT_TABLE:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-AccountTable"
+            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
           PROFILE_TABLE: !Ref ProfileTable
           PROFILE_SETTINGS_TABLE: !Ref ProfileSettingsTable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
@@ -343,12 +316,12 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           # Direct references to infrastructure resources via CloudFormation exports
           USER_POOL_ID:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-UserPoolId"
+            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
           IDENTITY_POOL_ID:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-IdentityPoolId"
+            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
           # Import AccountTable from infrastructure stack
           ACCOUNT_TABLE:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-AccountTable"
+            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
           PROFILE_TABLE: !Ref ProfileTable
           PROFILE_AI_TABLE: !Ref ProfileAITable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
@@ -374,12 +347,12 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           # Direct references to infrastructure resources via CloudFormation exports
           USER_POOL_ID:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-UserPoolId"
+            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
           IDENTITY_POOL_ID:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-IdentityPoolId"
+            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
           # Import AccountTable from infrastructure stack
           ACCOUNT_TABLE:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-AccountTable"
+            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
           MOVIES_TABLE: !Ref MovieTable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
       Events:
@@ -403,12 +376,12 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           # Direct references to infrastructure resources via CloudFormation exports
           USER_POOL_ID:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-UserPoolId"
+            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
           IDENTITY_POOL_ID:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-IdentityPoolId"
+            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
           # Import AccountTable from infrastructure stack
           ACCOUNT_TABLE:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-AccountTable"
+            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
           SUBSCRIPTION_TABLE: !Ref SubscriptionTable
           USER_USAGE_TABLE: !Ref UserUsageTable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
@@ -434,12 +407,12 @@ Resources:
           RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
           # Direct references to infrastructure resources via CloudFormation exports
           USER_POOL_ID:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-UserPoolId"
+            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
           IDENTITY_POOL_ID:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-IdentityPoolId"
+            Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
           # Import AccountTable from infrastructure stack
           ACCOUNT_TABLE:
-            Fn::ImportValue: !Sub "myai4-infrastructure-${Environment}-AccountTable"
+            Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
           WATCHLISTS_TABLE: !Ref WatchlistTable
           WATCH_HISTORY_TABLE: !Ref WatchHistoryTable
           ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
