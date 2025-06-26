@@ -55,7 +55,6 @@ Resources:
       Auth:
         DefaultAuthorizer: CognitoAuthorizer
         AddDefaultAuthorizerToCorsPreflight: false
-        # Exempt OPTIONS methods from authorization (needed for CORS preflight requests)
         Authorizers:
           CognitoAuthorizer:
             # Construct the ARN from the UserPoolId which is what the infra stack exports
@@ -66,55 +65,14 @@ Resources:
             Identity:
               Header: Authorization
               ValidationExpression: Bearer.*
-      # Configure API Gateway to handle OPTIONS method and CORS
       OpenApiVersion: 3.0.1
       Models:
         Empty:
           type: object
-      # Stage settings at the API level
       MinimumCompressionSize: 0
       BinaryMediaTypes:
         - "multipart/form-data"
       DisableExecuteApiEndpoint: false
-      DefinitionBody:
-        swagger: '2.0'
-        info:
-          title: !Ref AWS::StackName
-        paths:
-          /profile:
-            options:
-              consumes:
-                - application/json
-              produces:
-                - application/json
-              responses:
-                '200':
-                  description: 200 response
-                  headers:
-                    Access-Control-Allow-Origin:
-                      type: string
-                    Access-Control-Allow-Methods:
-                      type: string
-                    Access-Control-Allow-Headers:
-                      type: string
-                    Access-Control-Allow-Credentials:
-                      type: string
-              x-amazon-apigateway-integration:
-                type: mock
-                requestTemplates:
-                  application/json: '{"statusCode": 200}'
-                passthroughBehavior: never
-                responses:
-                  default:
-                    statusCode: 200
-                    responseParameters:
-                      method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
-                      method.response.header.Access-Control-Allow-Origin: !Sub
-                        - "'https://${CloudFrontDomain}'"
-                        - CloudFrontDomain:
-                            Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
-                      method.response.header.Access-Control-Allow-Credentials: "'true'"
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
