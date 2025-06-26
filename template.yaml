@@ -82,54 +82,160 @@ Resources:
       BinaryMediaTypes:
         - "multipart/form-data"
       DisableExecuteApiEndpoint: false
+      DefinitionBody:
+        swagger: '2.0'
+        info:
+          title: !Ref AWS::StackName
+        paths:
+          /profile:
+            options:
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                '200':
+                  description: 200 response
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: string
+                    Access-Control-Allow-Methods:
+                      type: string
+                    Access-Control-Allow-Headers:
+                      type: string
+                    Access-Control-Allow-Credentials:
+                      type: string
+              x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                  application/json: '{"statusCode": 200}'
+                passthroughBehavior: never
+                responses:
+                  default:
+                    statusCode: 200
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
+                      method.response.header.Access-Control-Allow-Origin: !Join 
+                        - ','
+                        - - !If 
+                            - IsDev
+                            - !FindInMap [EnvironmentConfig, dev, LocalOrigins]
+                            - !FindInMap [EnvironmentConfig, prod, CustomDomains]
+                          - !Sub
+                            - "https://${CloudFrontDomain}"
+                            - CloudFrontDomain:
+                                Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
+                      method.response.header.Access-Control-Allow-Credentials: "'true'"
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
-        # When AllowCredentials is true, origins must be explicitly listed (not '*')
-        # For development, use localhost origins
-        AllowOrigin: "'http://localhost:5173,http://localhost:3000'"
+        AllowOrigin: !Join 
+          - ','
+          - - !If 
+              - IsDev
+              - !FindInMap [EnvironmentConfig, dev, LocalOrigins]
+              - !FindInMap [EnvironmentConfig, prod, CustomDomains]
+            - !Sub
+              - "https://${CloudFrontDomain}"
+              - CloudFrontDomain:
+                  Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
         AllowCredentials: true
       # Gateway responses with CORS headers for errors
       GatewayResponses:
         DEFAULT_4XX:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'http://localhost:5173,http://localhost:3000'"
+              Access-Control-Allow-Origin: !Join 
+                - ','
+                - - !If 
+                    - IsDev
+                    - !FindInMap [EnvironmentConfig, dev, LocalOrigins]
+                    - !FindInMap [EnvironmentConfig, prod, CustomDomains]
+                  - !Sub
+                    - "https://${CloudFrontDomain}"
+                    - CloudFrontDomain:
+                        Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         DEFAULT_5XX:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'http://localhost:5173,http://localhost:3000'"
+              Access-Control-Allow-Origin: !Join 
+                - ','
+                - - !If 
+                    - IsDev
+                    - !FindInMap [EnvironmentConfig, dev, LocalOrigins]
+                    - !FindInMap [EnvironmentConfig, prod, CustomDomains]
+                  - !Sub
+                    - "https://${CloudFrontDomain}"
+                    - CloudFrontDomain:
+                        Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         UNAUTHORIZED:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'http://localhost:5173,http://localhost:3000'"
+              Access-Control-Allow-Origin: !Join 
+                - ','
+                - - !If 
+                    - IsDev
+                    - !FindInMap [EnvironmentConfig, dev, LocalOrigins]
+                    - !FindInMap [EnvironmentConfig, prod, CustomDomains]
+                  - !Sub
+                    - "https://${CloudFrontDomain}"
+                    - CloudFrontDomain:
+                        Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         ACCESS_DENIED:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'http://localhost:5173,http://localhost:3000'"
+              Access-Control-Allow-Origin: !Join 
+                - ','
+                - - !If 
+                    - IsDev
+                    - !FindInMap [EnvironmentConfig, dev, LocalOrigins]
+                    - !FindInMap [EnvironmentConfig, prod, CustomDomains]
+                  - !Sub
+                    - "https://${CloudFrontDomain}"
+                    - CloudFrontDomain:
+                        Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         RESOURCE_NOT_FOUND:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'http://localhost:5173,http://localhost:3000'"
+              Access-Control-Allow-Origin: !Join 
+                - ','
+                - - !If 
+                    - IsDev
+                    - !FindInMap [EnvironmentConfig, dev, LocalOrigins]
+                    - !FindInMap [EnvironmentConfig, prod, CustomDomains]
+                  - !Sub
+                    - "https://${CloudFrontDomain}"
+                    - CloudFrontDomain:
+                        Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         INVALID_API_KEY:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'http://localhost:5173,http://localhost:3000'"
+              Access-Control-Allow-Origin: !Join 
+                - ','
+                - - !If 
+                    - IsDev
+                    - !FindInMap [EnvironmentConfig, dev, LocalOrigins]
+                    - !FindInMap [EnvironmentConfig, prod, CustomDomains]
+                  - !Sub
+                    - "https://${CloudFrontDomain}"
+                    - CloudFrontDomain:
+                        Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"

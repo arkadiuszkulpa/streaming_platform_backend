@@ -22,6 +22,7 @@ $lambdaFunctions = @{
     "movie" = "lambda_handler_movie.py"
     "subscription" = "lambda_handler_subscription.py"
     "watchlist" = "lambda_handler_watchlist.py"
+    "cors" = "lambda_handler_cors.py"
 }
 
 Write-Host "Starting Lambda handler code refresh for stack: $stackName (Environment: $environment)" -ForegroundColor Cyan
@@ -80,7 +81,12 @@ foreach ($lambda in $lambdasToProcess) {
     Write-Host "Uploaded to S3: s3://$zipBucket/$lambda.zip" -ForegroundColor Gray
     
     # Step 3: Update Lambda function code
-    $functionName = "${lambda}-api-$stackName"
+    # Special case for CORS handler which uses a different naming pattern in the template
+    if ($lambda -eq "cors") {
+        $functionName = "cors-handler-$stackName"
+    } else {
+        $functionName = "${lambda}-api-$stackName"
+    }
     
     try {
         Write-Host "Updating function: $functionName..."
@@ -114,3 +120,4 @@ Write-Host 'Invoke-RestMethod -Uri "${apiBaseUrl}/account?operation=test" -Metho
 Write-Host ""
 Write-Host "To update a single lambda function, specify the name:" -ForegroundColor Yellow
 Write-Host ".\refresh-lambda_handler.ps1 -environment $environment -stackName $stackName -lambdaName account" -ForegroundColor Cyan
+Write-Host ".\refresh-lambda_handler.ps1 -environment $environment -stackName $stackName -lambdaName cors" -ForegroundColor Cyan
