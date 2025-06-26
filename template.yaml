@@ -16,12 +16,6 @@ Parameters:
     Description: Name of the deployed infrastructure stack to reference
     Default: myai4-infrastructure
 
-  CloudFrontDomain:
-    Type: String
-    Description: CloudFront domain imported from infra stack
-    Default: !ImportValue
-      'Fn::Sub': "${InfraStackName}-CloudFrontDomainName"
-
 Conditions:
   IsDev: !Equals [!Ref Environment, dev]
   IsProd: !Equals [!Ref Environment, prod]
@@ -42,7 +36,10 @@ Globals:
     Environment:
       Variables:
         # Dynamic CORS origins based on environment
-        ALLOWED_ORIGINS: !Sub "https://${CloudFrontDomain}"
+        ALLOWED_ORIGINS: !Sub
+          - "https://${CloudFrontDomain}"
+          - CloudFrontDomain:
+              Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
     Tags:
       Environment: !Ref Environment
       Project: !Ref AWS::StackName
@@ -113,54 +110,78 @@ Resources:
                     responseParameters:
                       method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
                       method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
-                      method.response.header.Access-Control-Allow-Origin: !Sub "'https://${CloudFrontDomain}'"
+                      method.response.header.Access-Control-Allow-Origin: !Sub
+                        - "'https://${CloudFrontDomain}'"
+                        - CloudFrontDomain:
+                            Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
                       method.response.header.Access-Control-Allow-Credentials: "'true'"
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
-        AllowOrigin: !Sub "'https://${CloudFrontDomain}'"
+        AllowOrigin: !Sub
+          - "'https://${CloudFrontDomain}'"
+          - CloudFrontDomain:
+              Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
         AllowCredentials: true
       # Gateway responses with CORS headers for errors
       GatewayResponses:
         DEFAULT_4XX:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: !Sub "'https://${CloudFrontDomain}'"
+              Access-Control-Allow-Origin: !Sub
+                - "'https://${CloudFrontDomain}'"
+                - CloudFrontDomain:
+                    Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         DEFAULT_5XX:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: !Sub "'https://${CloudFrontDomain}'"
+              Access-Control-Allow-Origin: !Sub
+                - "'https://${CloudFrontDomain}'"
+                - CloudFrontDomain:
+                    Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         UNAUTHORIZED:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: !Sub "'https://${CloudFrontDomain}'"
+              Access-Control-Allow-Origin: !Sub
+                - "'https://${CloudFrontDomain}'"
+                - CloudFrontDomain:
+                    Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         ACCESS_DENIED:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: !Sub "'https://${CloudFrontDomain}'"
+              Access-Control-Allow-Origin: !Sub
+                - "'https://${CloudFrontDomain}'"
+                - CloudFrontDomain:
+                    Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         RESOURCE_NOT_FOUND:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: !Sub "'https://${CloudFrontDomain}'"
+              Access-Control-Allow-Origin: !Sub
+                - "'https://${CloudFrontDomain}'"
+                - CloudFrontDomain:
+                    Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
         INVALID_API_KEY:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: !Sub "'https://${CloudFrontDomain}'"
+              Access-Control-Allow-Origin: !Sub
+                - "'https://${CloudFrontDomain}'"
+                - CloudFrontDomain:
+                    Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
               Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
               Access-Control-Allow-Credentials: "'true'"
