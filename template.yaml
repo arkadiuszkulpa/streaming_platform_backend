@@ -68,12 +68,6 @@ Resources:
               - "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPoolId}"
               - UserPoolId: !ImportValue 
                   'Fn::Sub': '${InfraStackName}-UserPoolId'
-            # Configure scopes to make API Gateway accept access tokens
-            AuthorizationScopes:
-              - "aws.cognito.signin.user.admin"
-              - "openid"
-              - "profile"
-              - "email"
             Identity:
               Header: Authorization
               ValidationExpression: Bearer.*
@@ -425,11 +419,29 @@ Resources:
       InlineCode: |
         import os
         def lambda_handler(event, context):
+            # Get origin from request headers
+            origin = event.get('headers', {}).get('origin') or event.get('headers', {}).get('Origin')
             domain = os.environ.get("CloudFrontDomain")
+            environment = os.environ.get("Environment", "dev")
+            
+            # Allow localhost for dev environment, CloudFront domain for all environments
+            allowed_origins = [f"https://{domain}"]
+            if environment == "dev":
+                allowed_origins.extend([
+                    "http://localhost:5173"
+                ])
+            
+            # Check if origin is allowed
+            cors_origin = "*"  # fallback
+            if origin and origin in allowed_origins:
+                cors_origin = origin
+            elif f"https://{domain}" in allowed_origins:
+                cors_origin = f"https://{domain}"
+            
             return {
                 "statusCode": 200,
                 "headers": {
-                    "Access-Control-Allow-Origin": f"https://{domain}",
+                    "Access-Control-Allow-Origin": cors_origin,
                     "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
                     "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With",
                     "Access-Control-Allow-Credentials": "true"
@@ -439,6 +451,7 @@ Resources:
         Variables:
           CloudFrontDomain: !ImportValue
             'Fn::Sub': "${InfraStackName}-CloudFrontDomainName"
+          Environment: !Ref Environment
       Events:
         AccountOptions:
           Type: Api
