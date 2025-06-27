@@ -223,6 +223,11 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /account
             Method: ANY
+            Auth:
+              Authorizer: CognitoAuthorizer
+              AuthorizationScopes:
+                - "myai4-api/read"
+                - "myai4-api/write"
             
   # Profile Lambda Function
   ProfileApiFunction:
@@ -255,7 +260,11 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /profile
             Method: ANY
-            # Auth section removed - DefaultAuthorizer at API Gateway level is sufficient
+            Auth:
+              Authorizer: CognitoAuthorizer
+              AuthorizationScopes:
+                - "myai4-api/read"
+                - "myai4-api/write"
             
   # Profile Settings Lambda Function
   ProfileSettingsApiFunction:
@@ -286,6 +295,11 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /profile-settings
             Method: ANY
+            Auth:
+              Authorizer: CognitoAuthorizer
+              AuthorizationScopes:
+                - "myai4-api/read"
+                - "myai4-api/write"
             
   # Profile AI Lambda Function
   ProfileAIApiFunction:
@@ -317,6 +331,11 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /profile-ai
             Method: ANY
+            Auth:
+              Authorizer: CognitoAuthorizer
+              AuthorizationScopes:
+                - "myai4-api/read"
+                - "myai4-api/write"
 
   # Movie Lambda Function
   MovieApiFunction:
@@ -347,6 +366,11 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /movie
             Method: ANY
+            Auth:
+              Authorizer: CognitoAuthorizer
+              AuthorizationScopes:
+                - "myai4-api/read"
+                - "myai4-api/write"
               # Subscription Lambda Function
   SubscriptionApiFunction:
     Type: AWS::Serverless::Function
@@ -377,6 +401,11 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /subscription
             Method: ANY
+            Auth:
+              Authorizer: CognitoAuthorizer
+              AuthorizationScopes:
+                - "myai4-api/read"
+                - "myai4-api/write"
             
   # Watchlists Lambda Function
   WatchlistApiFunction:
@@ -408,6 +437,11 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /watchlist
             Method: ANY
+            Auth:
+              Authorizer: CognitoAuthorizer
+              AuthorizationScopes:
+                - "myai4-api/read"
+                - "myai4-api/write"
 
   # Shared OPTIONS Lambda for CORS preflight
   CorsOptionsFunction:
@@ -428,15 +462,23 @@ Resources:
             allowed_origins = [f"https://{domain}"]
             if environment == "dev":
                 allowed_origins.extend([
-                    "http://localhost:5173"
+                    "http://localhost:5173",
+                    "http://localhost:3000",
+                    "http://127.0.0.1:5173",
+                    "http://127.0.0.1:3000"
                 ])
+            
+            # Log for debugging
+            print(f"CORS Debug - Environment: {environment}, Origin: {origin}, Allowed: {allowed_origins}")
             
             # Check if origin is allowed
             cors_origin = "*"  # fallback
             if origin and origin in allowed_origins:
                 cors_origin = origin
+                print(f"CORS Debug - Allowed Origin: {cors_origin}")
             elif f"https://{domain}" in allowed_origins:
                 cors_origin = f"https://{domain}"
+                print(f"CORS Debug - Using CloudFront Domain: {cors_origin}")
             
             return {
                 "statusCode": 200,
