@@ -173,8 +173,7 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /account
             Method: OPTIONS
-            Auth:
-              Authorizer: NONE
+            # NO AUTH SECTION - matches working inline CORS pattern
             
   # Profile Lambda Function
   ProfileApiFunction:
@@ -219,8 +218,7 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /profile
             Method: OPTIONS
-            Auth:
-              Authorizer: NONE
+            # NO AUTH SECTION - matches working inline CORS pattern
             
   # Profile Settings Lambda Function
   ProfileSettingsApiFunction:
@@ -263,8 +261,7 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /profile-settings
             Method: OPTIONS
-            Auth:
-              Authorizer: NONE
+            # NO AUTH SECTION - matches working inline CORS pattern
             
   # Profile AI Lambda Function
   ProfileAIApiFunction:
@@ -308,8 +305,7 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /profile-ai
             Method: OPTIONS
-            Auth:
-              Authorizer: NONE
+            # NO AUTH SECTION - matches working inline CORS pattern
 
   # Movie Lambda Function
   MovieApiFunction:
@@ -352,8 +348,7 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /movie
             Method: OPTIONS
-            Auth:
-              Authorizer: NONE
+            # NO AUTH SECTION - matches working inline CORS pattern
               
   # Subscription Lambda Function
   SubscriptionApiFunction:
@@ -397,8 +392,7 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /subscription
             Method: OPTIONS
-            Auth:
-              Authorizer: NONE
+            # NO AUTH SECTION - matches working inline CORS pattern
             
   # Watchlists Lambda Function
   WatchlistApiFunction:
@@ -442,8 +436,7 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /watchlist
             Method: OPTIONS
-            Auth:
-              Authorizer: NONE
+            # NO AUTH SECTION - matches working inline CORS pattern
 
   # CORS handling removed - Each lambda function handles CORS directly including OPTIONS requests
 
