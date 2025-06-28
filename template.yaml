@@ -165,6 +165,15 @@ Resources:
               AuthorizationScopes:
                 - "myai4-api/read"
                 - "myai4-api/write"
+        # Handle OPTIONS requests without authorization for CORS preflight
+        OptionsEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /account
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
             
   # Profile Lambda Function
   ProfileApiFunction:
@@ -202,6 +211,15 @@ Resources:
               AuthorizationScopes:
                 - "myai4-api/read"
                 - "myai4-api/write"
+        # Handle OPTIONS requests without authorization for CORS preflight
+        OptionsEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /profile
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
             
   # Profile Settings Lambda Function
   ProfileSettingsApiFunction:
@@ -237,6 +255,15 @@ Resources:
               AuthorizationScopes:
                 - "myai4-api/read"
                 - "myai4-api/write"
+        # Handle OPTIONS requests without authorization for CORS preflight
+        OptionsEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /profile-settings
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
             
   # Profile AI Lambda Function
   ProfileAIApiFunction:
@@ -273,6 +300,15 @@ Resources:
               AuthorizationScopes:
                 - "myai4-api/read"
                 - "myai4-api/write"
+        # Handle OPTIONS requests without authorization for CORS preflight
+        OptionsEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /profile-ai
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
 
   # Movie Lambda Function
   MovieApiFunction:
@@ -308,7 +344,17 @@ Resources:
               AuthorizationScopes:
                 - "myai4-api/read"
                 - "myai4-api/write"
-              # Subscription Lambda Function
+        # Handle OPTIONS requests without authorization for CORS preflight
+        OptionsEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /movie
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
+              
+  # Subscription Lambda Function
   SubscriptionApiFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -343,6 +389,15 @@ Resources:
               AuthorizationScopes:
                 - "myai4-api/read"
                 - "myai4-api/write"
+        # Handle OPTIONS requests without authorization for CORS preflight
+        OptionsEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /subscription
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
             
   # Watchlists Lambda Function
   WatchlistApiFunction:
@@ -379,6 +434,15 @@ Resources:
               AuthorizationScopes:
                 - "myai4-api/read"
                 - "myai4-api/write"
+        # Handle OPTIONS requests without authorization for CORS preflight
+        OptionsEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /watchlist
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
 
   # CORS handling removed - Each lambda function handles CORS directly including OPTIONS requests
 
