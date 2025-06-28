@@ -16,9 +16,46 @@ from botocore.exceptions import ClientError
 dynamodb = boto3.resource('dynamodb')
 ssm = boto3.client('ssm')
 
-# Get allowed origins from environment variables
-# This is set via CloudFormation in the function environment
-ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', '').split(',')
+# CORS configuration using new environment variables from template
+def get_cors_headers(origin=None):
+    """
+    Generate CORS headers based on environment and origin.
+    Uses the new environment variables: CLOUDFRONT_DOMAIN, LOCAL_ORIGINS, ENVIRONMENT
+    """
+    environment = os.environ.get('ENVIRONMENT', 'dev')
+    cloudfront_domain = os.environ.get('CLOUDFRONT_DOMAIN', '')
+    local_origins_str = os.environ.get('LOCAL_ORIGINS', '')
+    
+    # Build allowed origins list
+    allowed_origins = []
+    
+    # Always add CloudFront domain if available
+    if cloudfront_domain:
+        allowed_origins.append(f"https://{cloudfront_domain}")
+    
+    # Add localhost origins for dev environment
+    if environment == 'dev' and local_origins_str:
+        local_origins = [o.strip() for o in local_origins_str.split(',') if o.strip()]
+        allowed_origins.extend(local_origins)
+    
+    # Log for debugging (matches the deleted CORS function approach)
+    print(f"CORS Debug - Environment: {environment}, Origin: {origin}, Allowed: {allowed_origins}")
+    
+    # Determine which origin to use
+    cors_origin = "*"  # fallback
+    if origin and origin in allowed_origins:
+        cors_origin = origin
+        print(f"CORS Debug - Allowed Origin: {origin}")
+    elif allowed_origins:
+        cors_origin = allowed_origins[0]  # Use first allowed as fallback
+        print(f"CORS Debug - Using fallback origin: {cors_origin}")
+    
+    return {
+        "Access-Control-Allow-Origin": cors_origin,
+        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With",
+        "Access-Control-Allow-Credentials": "true"
+    }
 
 # Environment variables - populated from CloudFormation template
 PROFILE_TABLE = os.environ.get('PROFILE_TABLE')  # This points to the ProfilesTable resource
@@ -110,10 +147,11 @@ def handle_test(data: Dict[str, Any]) -> Dict[str, Any]:
 
     # Check environment variables for infrastructure resources
     parameter_status = {}
-    if IDENTITY_POOL_ID:
+    identity_pool_id = os.environ.get('IDENTITY_POOL_ID')
+    if identity_pool_id:
         parameter_status['IDENTITY_POOL_ID'] = {
             'status': 'accessible',
-            'value': IDENTITY_POOL_ID
+            'value': identity_pool_id
         }
     else:
         parameter_status['IDENTITY_POOL_ID'] = {
@@ -151,42 +189,10 @@ def handle_test(data: Dict[str, Any]) -> Dict[str, Any]:
         'messages': messages
     }
 
-def is_origin_allowed(origin: str) -> bool:
-    """Check if the provided origin is allowed"""
-    if not origin:
-        return False
-    
-    # Environment check for development mode
-    env = os.environ.get('ENVIRONMENT', 'dev')
-    
-    # Always allow localhost origins in development environment
-    if env.lower() in ('dev', 'development'):
-        if 'localhost' in origin or '127.0.0.1' in origin:
-            return True
-        
-    # Strip any trailing slash for comparison
-    if origin.endswith('/'):
-        origin = origin[:-1]
-        
-    # Direct match check
-    if origin in ALLOWED_ORIGINS:
-        return True
-        
-    # Handle wildcard domains like *.cloudfront.net
-    for allowed_origin in ALLOWED_ORIGINS:
-        if allowed_origin.startswith('https://*.'):
-            # Extract the domain suffix pattern (e.g., 'cloudfront.net')
-            domain_suffix = allowed_origin[10:]  # Remove 'https://*.' prefix
-            
-            # Check if origin matches the pattern
-            if origin.startswith('https://') and origin[8:].endswith(domain_suffix):
-                return True
-                
-    return False
+# Removed is_origin_allowed function - now using get_cors_headers for all CORS logic
 
 def create_response(status_code: int, body: Dict[str, Any], origin: Optional[str] = None) -> Dict[str, Any]:
     """Create an API Gateway response object with proper CORS headers"""
-    # Since API Gateway will handle authentication, we just focus on formatting the response
     response = {
         'statusCode': status_code,
         'headers': {
@@ -195,27 +201,9 @@ def create_response(status_code: int, body: Dict[str, Any], origin: Optional[str
         'body': json.dumps(body)
     }
     
-    # For development, always add CORS headers
-    # In production, we'll check the origin
-    env = os.environ.get('ENVIRONMENT', 'dev')
-    
-    if env.lower() in ('dev', 'development'):
-        # In development, allow all origins for easier debugging
-        response['headers'].update({
-            'Access-Control-Allow-Origin': origin or '*',  # Echo back or use wildcard as fallback
-            'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With',
-            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-            'Access-Control-Allow-Credentials': 'true',
-            'Cache-Control': 'no-cache'  # Prevent CORS caching issues
-        })
-    elif origin and is_origin_allowed(origin):
-        # In production, only allow approved origins
-        response['headers'].update({
-            'Access-Control-Allow-Origin': origin,  # Echo back the specific allowed origin
-            'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With',
-            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-            'Access-Control-Allow-Credentials': 'true'
-        })
+    # Add dynamic CORS headers using the new function
+    cors_headers = get_cors_headers(origin)
+    response['headers'].update(cors_headers)
     
     return response
 
@@ -231,26 +219,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Check for OPTIONS request (CORS preflight)
         if event.get('httpMethod') == 'OPTIONS':
-            # For OPTIONS requests, we need to handle everything manually
-            # to ensure proper CORS headers are returned
-            env = os.environ.get('ENVIRONMENT', 'dev')
-            allow_headers = 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'
-            
-            # Get specific requested headers if provided
-            requested_headers = headers.get('access-control-request-headers')
-            if requested_headers:
-                allow_headers = requested_headers
+            # Use the new dynamic CORS headers function
+            cors_headers = get_cors_headers(origin)
             
             response = {
                 'statusCode': 200,
-                'headers': {
-                    'Access-Control-Allow-Origin': origin or '*',
-                    'Access-Control-Allow-Headers': allow_headers,
-                    'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-                    'Access-Control-Allow-Credentials': 'true',
-                    'Access-Control-Max-Age': '86400',  # Cache preflight for 24 hours
-                    'Content-Type': 'application/json'
-                },
+                'headers': cors_headers,
                 'body': json.dumps({'message': 'CORS preflight successful'})
             }
             return response

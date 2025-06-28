@@ -24,7 +24,7 @@ Conditions:
 Mappings:
   EnvironmentConfig:
     dev:
-      LocalOrigins: "http://localhost:5173,http://localhost:3000"
+      LocalOrigins: "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000"
     prod:
       CustomDomains: "https://myai4.co.uk,https://www.myai4.co.uk,https://myai4stream.co.uk,https://www.myai4stream.co.uk,https://myai4stream.com,https://www.myai4stream.com"
 
@@ -35,7 +35,11 @@ Globals:
     MemorySize: 256
     Environment:
       Variables:
-        # Dynamic CORS origins based on environment
+        # Dynamic CORS origins based on environment - ADDED FOR CORS FIX
+        CLOUDFRONT_DOMAIN: !ImportValue
+          'Fn::Sub': '${InfraStackName}-CloudFrontDomainName'
+        LOCAL_ORIGINS: !FindInMap [EnvironmentConfig, !Ref Environment, LocalOrigins]
+        # Keep existing ALLOWED_ORIGINS for backward compatibility
         ALLOWED_ORIGINS: !Sub
           - "https://${CloudFrontDomain}"
           - CloudFrontDomain:
@@ -79,76 +83,9 @@ Resources:
       BinaryMediaTypes:
         - "multipart/form-data"
       DisableExecuteApiEndpoint: false
-      Cors:
-        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
-        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
-        AllowOrigin: !Sub
-          - "'https://${CloudFrontDomain}'"
-          - CloudFrontDomain:
-              Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
-        AllowCredentials: true
-      # Gateway responses with CORS headers for errors
-      GatewayResponses:
-        DEFAULT_4XX:
-          ResponseParameters:
-            Headers:
-              Access-Control-Allow-Origin: !Sub
-                - "'https://${CloudFrontDomain}'"
-                - CloudFrontDomain:
-                    Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
-              Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
-              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              Access-Control-Allow-Credentials: "'true'"
-        DEFAULT_5XX:
-          ResponseParameters:
-            Headers:
-              Access-Control-Allow-Origin: !Sub
-                - "'https://${CloudFrontDomain}'"
-                - CloudFrontDomain:
-                    Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
-              Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
-              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              Access-Control-Allow-Credentials: "'true'"
-        UNAUTHORIZED:
-          ResponseParameters:
-            Headers:
-              Access-Control-Allow-Origin: !Sub
-                - "'https://${CloudFrontDomain}'"
-                - CloudFrontDomain:
-                    Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
-              Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
-              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              Access-Control-Allow-Credentials: "'true'"
-        ACCESS_DENIED:
-          ResponseParameters:
-            Headers:
-              Access-Control-Allow-Origin: !Sub
-                - "'https://${CloudFrontDomain}'"
-                - CloudFrontDomain:
-                    Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
-              Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
-              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              Access-Control-Allow-Credentials: "'true'"
-        RESOURCE_NOT_FOUND:
-          ResponseParameters:
-            Headers:
-              Access-Control-Allow-Origin: !Sub
-                - "'https://${CloudFrontDomain}'"
-                - CloudFrontDomain:
-                    Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
-              Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
-              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              Access-Control-Allow-Credentials: "'true'"
-        INVALID_API_KEY:
-          ResponseParameters:
-            Headers:
-              Access-Control-Allow-Origin: !Sub
-                - "'https://${CloudFrontDomain}'"
-                - CloudFrontDomain:
-                    Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
-              Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With'"
-              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              Access-Control-Allow-Credentials: "'true'"
+      # CORS REMOVED: Let lambda functions handle CORS dynamically based on environment
+      # This fixes localhost development CORS issues
+      # Gateway responses with CORS headers for errors - REMOVED to let lambda handle CORS
 
   ####################################
   # IAM Roles
@@ -443,100 +380,7 @@ Resources:
                 - "myai4-api/read"
                 - "myai4-api/write"
 
-  # Shared OPTIONS Lambda for CORS preflight
-  CorsOptionsFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub "cors-options-${AWS::StackName}"
-      Handler: index.lambda_handler
-      Runtime: python3.12
-      InlineCode: |
-        import os
-        def lambda_handler(event, context):
-            # Get origin from request headers
-            origin = event.get('headers', {}).get('origin') or event.get('headers', {}).get('Origin')
-            domain = os.environ.get("CloudFrontDomain")
-            environment = os.environ.get("Environment", "dev")
-            
-            # Allow localhost for dev environment, CloudFront domain for all environments
-            allowed_origins = [f"https://{domain}"]
-            if environment == "dev":
-                allowed_origins.extend([
-                    "http://localhost:5173",
-                    "http://localhost:3000",
-                    "http://127.0.0.1:5173",
-                    "http://127.0.0.1:3000"
-                ])
-            
-            # Log for debugging
-            print(f"CORS Debug - Environment: {environment}, Origin: {origin}, Allowed: {allowed_origins}")
-            
-            # Check if origin is allowed
-            cors_origin = "*"  # fallback
-            if origin and origin in allowed_origins:
-                cors_origin = origin
-                print(f"CORS Debug - Allowed Origin: {cors_origin}")
-            elif f"https://{domain}" in allowed_origins:
-                cors_origin = f"https://{domain}"
-                print(f"CORS Debug - Using CloudFront Domain: {cors_origin}")
-            
-            return {
-                "statusCode": 200,
-                "headers": {
-                    "Access-Control-Allow-Origin": cors_origin,
-                    "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-                    "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With",
-                    "Access-Control-Allow-Credentials": "true"
-                }
-            }
-      Environment:
-        Variables:
-          CloudFrontDomain: !ImportValue
-            'Fn::Sub': "${InfraStackName}-CloudFrontDomainName"
-          Environment: !Ref Environment
-      Events:
-        AccountOptions:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ApiGateway
-            Path: /account
-            Method: OPTIONS
-        ProfileOptions:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ApiGateway
-            Path: /profile
-            Method: OPTIONS
-        ProfileSettingsOptions:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ApiGateway
-            Path: /profile-settings
-            Method: OPTIONS
-        ProfileAIOptions:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ApiGateway
-            Path: /profile-ai
-            Method: OPTIONS
-        MovieOptions:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ApiGateway
-            Path: /movie
-            Method: OPTIONS
-        SubscriptionOptions:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ApiGateway
-            Path: /subscription
-            Method: OPTIONS
-        WatchlistOptions:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ApiGateway
-            Path: /watchlist
-            Method: OPTIONS
+  # CORS handling removed - Each lambda function handles CORS directly including OPTIONS requests
 
   ####################################
   # DynamoDB Tables - MyAI4 Ecosystem
