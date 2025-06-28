@@ -26,6 +26,7 @@ Mappings:
     dev:
       LocalOrigins: "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000"
     prod:
+      LocalOrigins: ""  # No localhost origins in production
       CustomDomains: "https://myai4.co.uk,https://www.myai4.co.uk,https://myai4stream.co.uk,https://www.myai4stream.co.uk,https://myai4stream.com,https://www.myai4stream.com"
 
 Globals:

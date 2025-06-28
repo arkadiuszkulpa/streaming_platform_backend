@@ -31,31 +31,47 @@ def get_cors_headers(origin=None):
     
     # Always add CloudFront domain if available
     if cloudfront_domain:
-        allowed_origins.append(f"https://{cloudfront_domain}")
+        # Ensure we have the full URL format - add https:// if not present
+        if cloudfront_domain.startswith('http'):
+            allowed_origins.append(cloudfront_domain)
+        else:
+            allowed_origins.append(f"https://{cloudfront_domain}")
     
-    # Add localhost origins for dev environment
-    if environment == 'dev' and local_origins_str:
+    # Add localhost origins for dev environment or any environment (for debugging)
+    if local_origins_str:
         local_origins = [o.strip() for o in local_origins_str.split(',') if o.strip()]
         allowed_origins.extend(local_origins)
     
-    # Log for debugging (matches the deleted CORS function approach)
-    print(f"CORS Debug - Environment: {environment}, Origin: {origin}, Allowed: {allowed_origins}")
+    # Enhanced debugging
+    print(f"=== CORS DEBUG ===")
+    print(f"Environment: {environment}")
+    print(f"CloudFront Domain Raw: '{cloudfront_domain}'")
+    print(f"Local Origins Raw: '{local_origins_str}'")
+    print(f"Request Origin: '{origin}'")
+    print(f"Allowed Origins: {allowed_origins}")
     
     # Determine which origin to use
     cors_origin = "*"  # fallback
     if origin and origin in allowed_origins:
         cors_origin = origin
-        print(f"CORS Debug - Allowed Origin: {origin}")
+        print(f"✅ CORS - Exact match for origin: {origin}")
     elif allowed_origins:
         cors_origin = allowed_origins[0]  # Use first allowed as fallback
-        print(f"CORS Debug - Using fallback origin: {cors_origin}")
+        print(f"⚠️ CORS - Using fallback origin: {cors_origin} (requested: {origin})")
+    else:
+        print(f"❌ CORS - No allowed origins configured, using wildcard")
     
-    return {
+    cors_headers = {
         "Access-Control-Allow-Origin": cors_origin,
         "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With",
         "Access-Control-Allow-Credentials": "true"
     }
+    
+    print(f"Final CORS Headers: {cors_headers}")
+    print(f"=== END CORS DEBUG ===")
+    
+    return cors_headers
 
 # Environment variables - populated from CloudFormation template
 PROFILE_TABLE = os.environ.get('PROFILE_TABLE')  # This points to the ProfilesTable resource
@@ -213,20 +229,31 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     Authentication is now fully handled by API Gateway
     """
     try:
+        # Enhanced debugging for authorization issues
+        print(f"=== REQUEST DEBUG ===")
+        print(f"HTTP Method: {event.get('httpMethod')}")
+        print(f"Path: {event.get('path')}")
+        print(f"Headers: {json.dumps(event.get('headers', {}), indent=2)}")
+        print(f"Request Context: {json.dumps(event.get('requestContext', {}), indent=2)}")
+        print(f"=== END REQUEST DEBUG ===")
+        
         # Extract origin from request headers (case-insensitive)
         headers = {k.lower(): v for k, v in event.get('headers', {}).items()}
         origin = headers.get('origin')
         
         # Check for OPTIONS request (CORS preflight)
         if event.get('httpMethod') == 'OPTIONS':
+            print("🔄 Handling OPTIONS request")
             # Use the new dynamic CORS headers function
             cors_headers = get_cors_headers(origin)
             
+            # OPTIONS response should have NO BODY - just like the working inline CORS lambda
             response = {
                 'statusCode': 200,
-                'headers': cors_headers,
-                'body': json.dumps({'message': 'CORS preflight successful'})
+                'headers': cors_headers
+                # NO BODY - this matches the working inline CORS lambda pattern
             }
+            print(f"OPTIONS Response: {json.dumps(response, indent=2)}")
             return response
             
         # Parse the operation from query parameters or request body
