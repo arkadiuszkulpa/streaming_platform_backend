@@ -24,7 +24,7 @@ aws secretsmanager update-secret --secret-id "myai4/rapidapi/keys/" --secret-str
 cd c:\Projects\streaming_platform_backend; .\refresh-lambda_handler.ps1 -environment dev -stackName myai4-backend-dev
 
 # Update a specific lambda function in dev
-cd c:\Projects\streaming_platform_backend; .\refresh-lambda_handler.ps1 -environment dev -stackName myai4-backend-dev -lambdaName account
+cd c:\Projects\streaming_platform_backend; .\refresh-lambda_handler.ps1 -environment dev -stackName myai4-backend-dev -lambdaName profile
 
 # Update for production (only when dev is fully tested)
 cd c:\Projects\streaming_platform_backend; .\refresh-lambda_handler.ps1 -environment prod -stackName myai4-backend-prod

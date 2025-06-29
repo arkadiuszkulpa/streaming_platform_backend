@@ -1,856 +1,452 @@
-    AWSTemplateFormatVersion: '2010-09-09'
-    Transform: AWS::Serverless-2016-10-31
-    Description: MyAI4 Ecosystem Backend Stack - Unified backend services for streaming, shopping, gaming, and AI-powered services
+"""
+MyAI4 Centralized Lambda Handler
+This Lambda function serves as the centralized backend for the MyAI4 ecosystem.
+It implements a router pattern to handle various operations for the streaming platform
+and other MyAI4 services.
+"""
 
-    Parameters:
-      Environment:
-        Type: String
-        Description: The environment for this stack (e.g., dev, prod)
-        AllowedValues:
-          - dev
-          - prod
-        Default: dev
+import os
+import json
+import boto3
+from datetime import datetime
+from typing import Dict, Any, Optional, List
+from botocore.exceptions import ClientError
+
+# Initialize AWS resources
+dynamodb = boto3.resource('dynamodb')
+ssm = boto3.client('ssm')
+
+# Environment variables - populated from CloudFormation template
+PROFILE_TABLE = os.environ.get('PROFILE_TABLE')  # This points to the ProfilesTable resource
+ACCOUNT_TABLE = os.environ.get('ACCOUNT_TABLE')  # Table for user accounts (imported from infrastructure stack)
+SUBSCRIPTIONS_TABLE = os.environ.get('SUBSCRIPTION_TABLE')
+USER_USAGE_TABLE = os.environ.get('USER_USAGE_TABLE')
+
+# Removing Cognito resources as auth will be handled by API Gateway
+# USER_POOL_ID and IDENTITY_POOL_ID are not needed anymore
+
+# Mock RapidAPI key function - remove when integrating
+def get_rapidapi_key():
+    """Get RapidAPI key from AWS Secrets Manager"""
+    secret_name = os.environ.get('RAPIDAPI_SECRET_NAME')
+    if not secret_name:
+        raise ValueError("RAPIDAPI_SECRET_NAME environment variable not set")
+    
+    # Create a Secrets Manager client
+    session = boto3.session.Session()
+    client = session.client(service_name='secretsmanager')
+    
+    try:
+        get_secret_value_response = client.get_secret_value(SecretId=secret_name)
+    except ClientError as error:
+        print(f"Error retrieving secret {secret_name}: {str(error)}")
+        raise error
+    
+    # Depending on whether the secret is a string or binary, one of these fields will be populated
+    if 'SecretString' in get_secret_value_response:
+        secret = get_secret_value_response['SecretString']
+        # Parse the JSON string
+        secret_dict = json.loads(secret)
+        # Return the specific key value
+        return secret_dict.get('rapidapikey')
+    else:
+        raise ValueError("Secret value is not in string format")
+
+def handle_test(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Test handler for API connectivity and diagnostics"""
+    # Get the Lambda function name from the context
+    function_name = os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'unknown')
+    environment = os.environ.get('ENVIRONMENT', 'unknown')
+    
+    # Check if we can access DynamoDB tables
+    table_status = {}
+    warnings = []
+    messages = []
+    # Check for required environment variables
+    for env_var in [
+        'ACCOUNT_TABLE', 'PROFILE_TABLE', 'SUBSCRIPTION_TABLE', 'USER_USAGE_TABLE',
+        'RAPIDAPI_SECRET_NAME', 'ENVIRONMENT', 'IDENTITY_POOL_ID'
+    ]:
+        if not os.environ.get(env_var):
+            warnings.append(f"Environment variable {env_var} is not set")
+    
+    # Check all tables
+    for table_name, table_var in {
+        'ACCOUNT_TABLE': ACCOUNT_TABLE,
+        'PROFILE_TABLE': PROFILE_TABLE,
+        'SUBSCRIPTION_TABLE': SUBSCRIPTIONS_TABLE,
+        'USER_USAGE_TABLE': USER_USAGE_TABLE
+    }.items():
+        if table_var:
+            try:
+                table = dynamodb.Table(table_var)
+                # Get more detailed table information
+                table_details = table.meta.client.describe_table(TableName=table_var)
+                
+                table_status[table_name] = {
+                    'status': 'accessible',
+                    'name': table_var,
+                    'details': {
+                        'item_count': table_details['Table'].get('ItemCount', 'unknown'),
+                        'table_status': table_details['Table'].get('TableStatus', 'unknown'),
+                        'size_bytes': table_details['Table'].get('TableSizeBytes', 'unknown')
+                    }
+                }
+            except Exception as e:
+                table_status[table_name] = {
+                    'status': 'error',
+                    'name': table_var,
+                    'error': str(e)
+                }
+        else:
+            table_status[table_name] = {
+                'status': 'missing',
+                'name': 'Table name not configured'
+            }
+
+    # Check environment variables for infrastructure resources
+    parameter_status = {}
+    identity_pool_id = os.environ.get('IDENTITY_POOL_ID')
+    if identity_pool_id:
+        parameter_status['IDENTITY_POOL_ID'] = {
+            'status': 'accessible',
+            'value': identity_pool_id
+        }
+    else:
+        parameter_status['IDENTITY_POOL_ID'] = {
+            'status': 'missing',
+            'error': 'Environment variable not set'
+        }
+    
+    # Check for RapidAPI key
+    try:
+        _ = get_rapidapi_key()
+        messages.append("RapidAPI key is accessible")
+    except Exception as e:
+        warnings.append(f"Cannot access RapidAPI key: {str(e)}")
+    
+    # Get Lambda execution environment
+    execution_env = os.environ.get('AWS_EXECUTION_ENV', 'unknown')
+    
+    return {
+        'message': 'MyAI4 Centralized API is operational',
+        'timestamp': datetime.utcnow().isoformat(),
+        'request_time': datetime.utcnow().isoformat(),
+        'data_received': data,
+        'parameter_status': parameter_status,
+        'function': function_name,
+        'lambda_name': function_name,
+        'region': os.environ.get('AWS_REGION', 'unknown'),
+        'version': os.environ.get('AWS_LAMBDA_FUNCTION_VERSION', 'unknown'),
+        'memory': os.environ.get('AWS_LAMBDA_FUNCTION_MEMORY_SIZE', 'unknown'),
+        'execution_environment': execution_env,
+        'environment': environment,
+        'tables': table_status,
+        'parameters': parameter_status,
+        'api_version': '1.0.0',
+        'warnings': warnings,
+        'messages': messages
+    }
+
+def create_response(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:
+    """Create an API Gateway response object with proper CORS headers"""
+    response = {
+        'statusCode': status_code,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token',
+            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
+        },
+        'body': json.dumps(body)
+    }
+    
+    return response
+
+def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """
+    Centralized Lambda handler for MyAI4 ecosystem operations
+    Authentication is now fully handled by API Gateway
+    """
+    try:
+        # Log basic request info for debugging
+        print(f"🔍 {event.get('httpMethod')} {event.get('path')}")
         
-      InfraStackName:
-        Type: String
-        Description: Name of the deployed infrastructure stack to reference
-        Default: myai4-infrastructure
+        # Handle OPTIONS requests for CORS preflight
+        http_method = event.get('httpMethod', 'GET')
+        if http_method == 'OPTIONS':
+            print("✅ Handling OPTIONS preflight request")
+            return create_response(200, {'message': 'CORS preflight response'})
+            
+        # Parse operation from request body (all requests use POST method)
+        try:
+            body = json.loads(event.get('body', '{}'))
+            operation = body.get('operation')
+            data = body.get('data', {})
+            print(f"✅ Operation: {operation}")
+        except json.JSONDecodeError as e:
+            print(f"❌ JSON decode error: {str(e)}")
+            return create_response(400, {'error': 'Invalid JSON in request body'})
+            
+        if not operation:
+            print("❌ No operation specified")
+            return create_response(400, {'error': 'Operation parameter is required'})
+            
+        # Route to appropriate handler
+        handlers = {
+            # Test operation
+            'test': handle_test,
+            
+            # Profile Operations
+            'getProfiles': handle_get_profiles,
+            'getProfile': handle_get_profile,
+            'createProfile': handle_create_profile,
+            'updateProfile': handle_update_profile,
+            'deleteProfile': handle_delete_profile
+        }
+        
+        handler = handlers.get(operation)
+        if not handler:
+            print(f"❌ Unknown operation: {operation}")
+            return create_response(400, {'error': f'Unknown operation: {operation}'})
+            
+        # Execute the handler
+        print(f"✅ Executing: {operation}")
+        result = handler(data)
+        return create_response(200, result)
+    except Exception as e:
+        print(f"❌ Error in lambda_handler: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return create_response(500, {'error': 'Internal server error', 'details': str(e)})
 
-    Conditions:
-      IsDev: !Equals [!Ref Environment, dev]
-      IsProd: !Equals [!Ref Environment, prod]
+def handle_get_profiles(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handler for getProfiles operation
+    Retrieves all profiles associated with a specific user account
+    
+    Expected data:
+    - accountId (required): The ID of the account whose profiles should be retrieved
+    """
+    # Validate required parameters
+    if not data.get('accountId'):
+        return {'error': 'Missing required parameter: accountId'}
+    
+    accountId = data['accountId']
+    
+    if not PROFILE_TABLE:
+        return {'error': 'PROFILE_TABLE environment variable is not configured'}
+    
+    try:
+        # Query the profiles for this account
+        table = dynamodb.Table(PROFILE_TABLE)
+        response = table.query(
+            KeyConditionExpression=boto3.dynamodb.conditions.Key('accountId').eq(accountId)
+        )
+        
+        if 'Items' not in response or not response['Items']:
+            return {'profiles': []}
+        
+        # Return the profiles
+        return {'profiles': response['Items']}
+    
+    except ClientError as e:
+        print(f"DynamoDB error: {str(e)}")
+        return {'error': f'Database error: {str(e)}'}
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        return {'error': f'Unexpected error: {str(e)}'}
 
-    # Mappings for environment-specific configuration
-    Mappings:
-      EnvironmentConfig:
-        dev:
-          LocalOrigins: "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000"
-        prod:
-          LocalOrigins: ""  # No localhost origins in production
-          CustomDomains: "https://myai4.co.uk,https://www.myai4.co.uk,https://myai4stream.co.uk,https://www.myai4stream.co.uk,https://myai4stream.com,https://www.myai4stream.com"
+def handle_get_profile(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handler for getUserProfile operation
+    Retrieves a single user's profile from DynamoDB
 
-    Globals:
-      Function:
-        Timeout: 10
-        Runtime: python3.12
-        MemorySize: 256
-        Environment:
-          Variables:
-            # Dynamic CORS origins based on environment - ADDED FOR CORS FIX
-            CLOUDFRONT_DOMAIN: !ImportValue
-              'Fn::Sub': '${InfraStackName}-CloudFrontDomainName'
-            LOCAL_ORIGINS: !FindInMap [EnvironmentConfig, !Ref Environment, LocalOrigins]
-            # Keep existing ALLOWED_ORIGINS for backward compatibility
-            ALLOWED_ORIGINS: !Sub
-              - "https://${CloudFrontDomain}"
-              - CloudFrontDomain:
-                  Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
-        Tags:
-          Environment: !Ref Environment
-          Project: !Ref AWS::StackName
+    Expected data:
+    - accountId (required): The account ID of the user
+    - profileId (required): The ID of the profile to retrieve
+    """
+    # Validate required parameters
+    if not data.get('accountId'):
+        return {'error': 'Missing required parameter: accountId'}
+    if not data.get('profileId'):
+        return {'error': 'Missing required parameter: profileId'}
+    
+    accountId = data['accountId']
+    profileId = data['profileId']
+    
+    if not PROFILE_TABLE:
+        return {'error': 'PROFILE_TABLE environment variable is not configured'}
+    
+    try:
+        # Get the profile from DynamoDB
+        table = dynamodb.Table(PROFILE_TABLE)
+        response = table.get_item(
+            Key={
+                'accountId': accountId,
+                'profileId': profileId
+            }
+        )
+        
+        if 'Item' not in response:
+            return {'error': f'Profile not found for accountId: {accountId}, profileId: {profileId}', 'statusCode': 404}
+        
+        # Return the profile
+        return {'profile': response['Item']}
+    
+    except ClientError as e:
+        print(f"DynamoDB error: {str(e)}")
+        return {'error': f'Database error: {str(e)}'}
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        return {'error': f'Unexpected error: {str(e)}'}
 
-    Resources:  
-      ####################################
-      # API Gateway
-      ####################################  
-      ApiGateway:
-        Type: AWS::Serverless::Api
-        Properties:
-          StageName: !Ref Environment
-          MethodSettings:
-            - DataTraceEnabled: true
-              HttpMethod: "*"
-              LoggingLevel: INFO
-              ResourcePath: "/*"
-              MetricsEnabled: true
-          Auth:
-            DefaultAuthorizer: CognitoAuthorizer
-            AddDefaultAuthorizerToCorsPreflight: false
-            Authorizers:
-              CognitoAuthorizer:
-                UserPoolArn: !Sub 
-                  - "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPoolId}"
-                  - UserPoolId: !ImportValue 
-                      'Fn::Sub': '${InfraStackName}-UserPoolId'
-                AuthType: COGNITO_USER_POOLS
-                Identity:
-                  Header: Authorization
-                  ValidationExpression: "Bearer.*"
-          OpenApiVersion: 3.0.1
-          Models:
-            Empty:
-              type: object
-          MinimumCompressionSize: 0
-          BinaryMediaTypes:
-            - "multipart/form-data"
-          DisableExecuteApiEndpoint: false
-          # NO CORS HERE - Lambda handles all CORS dynamically
+def handle_create_profile(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Handler for createProfile operation
+    Creates a new profile for a user
+    
+    Expected data:
+    - profile (required): Profile object containing:
+      - accountId (required): The ID of the user account
+      - name (required): The name of the profile
+      - isKidsProfile (optional): Boolean indicating if this is a child profile
+      - avatar (optional): Avatar identifier or URL
+    """
+    # Validate required parameters
+    if not data.get('profile'):
+        return {'error': 'Missing required parameter: profile'}
+    
+    profile_data = data['profile']
+    
+    if not profile_data.get('accountId'):
+        return {'error': 'Missing required parameter: profile.accountId'}
+    if not profile_data.get('name'):
+        return {'error': 'Missing required parameter: profile.name'}
+    
+    accountId = profile_data['accountId']
+    
+    if not PROFILE_TABLE:
+        return {'error': 'PROFILE_TABLE environment variable is not configured'}
+    
+    try:
+        # Add timestamp if not provided
+        if not profile_data.get('createdAt'):
+            profile_data['createdAt'] = datetime.utcnow().isoformat()
+        
+        # Ensure profileId is present
+        if not profile_data.get('profileId'):
+            import uuid
+            profile_data['profileId'] = str(uuid.uuid4())
+            
+        # Store the profile in DynamoDB
+        table = dynamodb.Table(PROFILE_TABLE)
+        table.put_item(Item=profile_data)
+        
+        # Return the created profile
+        return {'profile': profile_data}
+    
+    except ClientError as e:
+        print(f"DynamoDB error: {str(e)}")
+        return {'error': f'Database error: {str(e)}'}
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        return {'error': f'Unexpected error: {str(e)}'}
 
-      ####################################
-      # IAM Roles
-      ####################################
-      LambdaExecutionRole:
-        Type: AWS::IAM::Role
-        Properties:
-          RoleName: !Sub "lambda_exec_role-${AWS::StackName}"
-          AssumeRolePolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Principal:
-                  Service: lambda.amazonaws.com
-                Action: sts:AssumeRole
-          ManagedPolicyArns:
-            - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-            - arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess      
-            - arn:aws:iam::aws:policy/CloudWatchFullAccess
-          Policies:
-            - PolicyName: SSMParameterAccess
-              PolicyDocument:
-                Version: '2012-10-17'
-                Statement:
-                  - Effect: Allow
-                    Action:
-                      - ssm:GetParameter
-                      - ssm:GetParameters
-                    Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/myai4/*"
-            - PolicyName: SecretsManagerAccess
-              PolicyDocument:
-                Version: '2012-10-17'
-                Statement:
-                  - Effect: Allow
-                    Action:
-                      - secretsmanager:GetSecretValue
-                    Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:myai4/rapidapi/keys/*"
-          Tags:
-            - Key: Environment
-              Value: !Ref Environment
-            - Key: Project
-              Value: !Ref AWS::StackName
+def handle_update_profile(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Handler for updateProfile operation
+    Updates an existing profile with new information
+    
+    Expected data:
+    - accountId (required): The ID of the user account
+    - profileId (required): The ID of the profile to update
+    - updates (required): Dictionary of fields to update
+    """
+    # Validate required parameters
+    if not data.get('accountId'):
+        return {'error': 'Missing required parameter: accountId'}
+    if not data.get('profileId'):
+        return {'error': 'Missing required parameter: profileId'}
+    if not data.get('updates'):
+        return {'error': 'Missing required parameter: updates'}
+    
+    accountId = data['accountId']
+    profileId = data['profileId']
+    updates = data['updates']
+    
+    if not PROFILE_TABLE:
+        return {'error': 'PROFILE_TABLE environment variable is not configured'}
+    
+    try:
+        # First, check if the profile exists
+        table = dynamodb.Table(PROFILE_TABLE)
+        response = table.get_item(
+            Key={
+                'accountId': accountId,
+                'profileId': profileId
+            }
+        )
+        
+        if 'Item' not in response:
+            return {'error': f'Profile not found for accountId: {accountId}, profileId: {profileId}', 'statusCode': 404}
+        
+        existing_profile = response['Item']
+        
+        # Add timestamp for update
+        updates['updatedAt'] = datetime.utcnow().isoformat()
+        
+        # Merge updates with existing profile
+        updated_profile = {**existing_profile, **updates}
+        
+        # Update the profile in DynamoDB
+        table.put_item(Item=updated_profile)
+        
+        # Return the updated profile
+        return {'profile': updated_profile}
+    
+    except ClientError as e:
+        print(f"DynamoDB error: {str(e)}")
+        return {'error': f'Database error: {str(e)}'}
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        return {'error': f'Unexpected error: {str(e)}'}
 
-      ####################################
-      # Lambda Functions
-      ####################################
-      
-      # Account Lambda Function
-      AccountApiFunction:
-        Type: AWS::Serverless::Function
-        Properties:
-          FunctionName: !Sub "account-api-${AWS::StackName}"
-          CodeUri: src/
-          Handler: lambda_handler_account.lambda_handler
-          Role: !GetAtt LambdaExecutionRole.Arn
-          Environment:
-            Variables:
-              # RapidAPI key will be retrieved at runtime from Secrets Manager
-              RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
-              # Direct references to infrastructure resources via CloudFormation exports
-              USER_POOL_ID: 
-                Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
-              IDENTITY_POOL_ID:
-                Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
-              ACCOUNT_TABLE:
-                Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
-              ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
-          Events:
-            ApiEvent:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /account
-                Method: ANY
-                Auth:
-                  Authorizer: CognitoAuthorizer
-                  AuthorizationScopes:
-                    - "myai4-api/read"
-                    - "myai4-api/write"
-                
-      # Dedicated CORS Lambda Function - handles ALL OPTIONS requests
-      CorsOptionsFunction:
-        Type: AWS::Serverless::Function
-        Properties:
-          FunctionName: !Sub "cors-options-${AWS::StackName}"
-          CodeUri: src/
-          Handler: lambda_handler_cors.lambda_handler
-          Runtime: python3.12
-          Role: !GetAtt LambdaExecutionRole.Arn
-          Environment:
-            Variables:
-              ENVIRONMENT: !Ref Environment
-              CLOUDFRONT_DOMAIN: !ImportValue
-                'Fn::Sub': "${InfraStackName}-CloudFrontDomainName"
-              LOCAL_ORIGINS: !FindInMap [EnvironmentConfig, !Ref Environment, LocalOrigins]
-          Events:
-            AccountOptions:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /account
-                Method: OPTIONS
-            ProfileOptions:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /profile
-                Method: OPTIONS
-            ProfileSettingsOptions:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /profile-settings
-                Method: OPTIONS
-            ProfileAIOptions:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /profile-ai
-                Method: OPTIONS
-            MovieOptions:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /movie
-                Method: OPTIONS
-            SubscriptionOptions:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /subscription
-                Method: OPTIONS
-            WatchlistOptions:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /watchlist
-                Method: OPTIONS
-                
-      # Profile Lambda Function
-      ProfileApiFunction:
-        Type: AWS::Serverless::Function
-        Properties:
-          FunctionName: !Sub "profile-api-${AWS::StackName}"
-          CodeUri: src/
-          Handler: lambda_handler_profile.lambda_handler
-          Role: !GetAtt LambdaExecutionRole.Arn
-          Environment:
-            Variables:
-              # RapidAPI key will be retrieved at runtime from Secrets Manager
-              RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
-              # Use the imported user pool ID directly
-              USER_POOL_ID:
-                Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
-              # The identity pool ID will also be imported directly
-              IDENTITY_POOL_ID:
-                Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"  
-              # Import AccountTable from infrastructure stack
-              ACCOUNT_TABLE:
-                Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
-              PROFILE_TABLE: !Ref ProfileTable
-              ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
-          Events:
-            # Handle all methods except OPTIONS - CorsOptionsFunction handles OPTIONS
-            ApiEvent:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /profile
-                Method: ANY
-                Auth:
-                  Authorizer: CognitoAuthorizer
-                  AuthorizationScopes:
-                    - "myai4-api/read"
-                    - "myai4-api/write"
-                
-      # Profile Settings Lambda Function
-      ProfileSettingsApiFunction:
-        Type: AWS::Serverless::Function
-        Properties:
-          FunctionName: !Sub "profile-settings-api-${AWS::StackName}"
-          CodeUri: src/
-          Handler: lambda_handler_profile_settings.lambda_handler
-          Role: !GetAtt LambdaExecutionRole.Arn
-          Environment:
-            Variables:
-              # RapidAPI key will be retrieved at runtime from Secrets Manager
-              RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
-              # Direct references to infrastructure resources via CloudFormation exports
-              USER_POOL_ID:
-                Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
-              IDENTITY_POOL_ID:
-                Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
-              ACCOUNT_TABLE:
-                Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
-              PROFILE_TABLE: !Ref ProfileTable
-              PROFILE_SETTINGS_TABLE: !Ref ProfileSettingsTable
-              ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
-          Events:
-            ApiEvent:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /profile-settings
-                Method: ANY
-                Auth:
-                  Authorizer: CognitoAuthorizer
-                  AuthorizationScopes:
-                    - "myai4-api/read"
-                    - "myai4-api/write"
-                
-      # Profile AI Lambda Function
-      ProfileAIApiFunction:
-        Type: AWS::Serverless::Function
-        Properties:
-          FunctionName: !Sub "profile-ai-api-${AWS::StackName}"
-          CodeUri: src/
-          Handler: lambda_handler_profile_ai.lambda_handler
-          Role: !GetAtt LambdaExecutionRole.Arn
-          Environment:
-            Variables:
-              # RapidAPI key will be retrieved at runtime from Secrets Manager
-              RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
-              # Direct references to infrastructure resources via CloudFormation exports
-              USER_POOL_ID:
-                Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
-              IDENTITY_POOL_ID:
-                Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
-              # Import AccountTable from infrastructure stack
-              ACCOUNT_TABLE:
-                Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
-              PROFILE_TABLE: !Ref ProfileTable
-              PROFILE_AI_TABLE: !Ref ProfileAITable
-              ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
-          Events:
-            ApiEvent:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /profile-ai
-                Method: ANY
-                Auth:
-                  Authorizer: CognitoAuthorizer
-                  AuthorizationScopes:
-                    - "myai4-api/read"
-                    - "myai4-api/write"
-
-      # Movie Lambda Function
-      MovieApiFunction:
-        Type: AWS::Serverless::Function
-        Properties:
-          FunctionName: !Sub "movie-api-${AWS::StackName}"
-          CodeUri: src/
-          Handler: lambda_handler_movie.lambda_handler
-          Role: !GetAtt LambdaExecutionRole.Arn
-          Environment:
-            Variables:
-              # RapidAPI key will be retrieved at runtime from Secrets Manager
-              RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
-              # Direct references to infrastructure resources via CloudFormation exports
-              USER_POOL_ID:
-                Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
-              IDENTITY_POOL_ID:
-                Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
-              # Import AccountTable from infrastructure stack
-              ACCOUNT_TABLE:
-                Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
-              MOVIES_TABLE: !Ref MovieTable
-              ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
-          Events:
-            ApiEvent:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /movie
-                Method: ANY
-                Auth:
-                  Authorizer: CognitoAuthorizer
-                  AuthorizationScopes:
-                    - "myai4-api/read"
-                    - "myai4-api/write"
-                  
-      # Subscription Lambda Function
-      SubscriptionApiFunction:
-        Type: AWS::Serverless::Function
-        Properties:
-          FunctionName: !Sub "subscription-api-${AWS::StackName}"
-          CodeUri: src/
-          Handler: lambda_handler_subscription.lambda_handler
-          Role: !GetAtt LambdaExecutionRole.Arn
-          Environment:
-            Variables:
-              # RapidAPI key will be retrieved at runtime from Secrets Manager
-              RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
-              # Direct references to infrastructure resources via CloudFormation exports
-              USER_POOL_ID:
-                Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
-              IDENTITY_POOL_ID:
-                Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
-              # Import AccountTable from infrastructure stack
-              ACCOUNT_TABLE:
-                Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
-              SUBSCRIPTION_TABLE: !Ref SubscriptionTable
-              USER_USAGE_TABLE: !Ref UserUsageTable
-              ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
-          Events:
-            ApiEvent:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /subscription
-                Method: ANY
-                Auth:
-                  Authorizer: CognitoAuthorizer
-                  AuthorizationScopes:
-                    - "myai4-api/read"
-                    - "myai4-api/write"
-                
-      # Watchlists Lambda Function
-      WatchlistApiFunction:
-        Type: AWS::Serverless::Function
-        Properties:
-          FunctionName: !Sub "watchlist-api-${AWS::StackName}"
-          CodeUri: src/
-          Handler: lambda_handler_watchlist.lambda_handler
-          Role: !GetAtt LambdaExecutionRole.Arn
-          Environment:
-            Variables:
-              # RapidAPI key will be retrieved at runtime from Secrets Manager
-              RAPIDAPI_SECRET_NAME: "myai4/rapidapi/keys/"
-              # Direct references to infrastructure resources via CloudFormation exports
-              USER_POOL_ID:
-                Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
-              IDENTITY_POOL_ID:
-                Fn::ImportValue: !Sub "${InfraStackName}-IdentityPoolId"
-              # Import AccountTable from infrastructure stack
-              ACCOUNT_TABLE:
-                Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
-              WATCHLISTS_TABLE: !Ref WatchlistTable
-              WATCH_HISTORY_TABLE: !Ref WatchHistoryTable
-              ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
-          Events:
-            # CorsOptionsFunction handles OPTIONS - remove duplicate
-            ApiEvent:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /watchlist
-                Method: ANY
-                Auth:
-                  Authorizer: CognitoAuthorizer
-                  AuthorizationScopes:
-                    - "myai4-api/read"
-                    - "myai4-api/write"
-                  
-      # CORS handling removed - Each lambda function handles CORS directly including OPTIONS requests
-
-      ####################################
-      # DynamoDB Tables - MyAI4 Ecosystem
-      ####################################
-
-      # TABLE 1: AccountTable - MOVED TO INFRASTRUCTURE STACK
-      # This has been moved to the infrastructure stack since it's related to authentication
-      # and is created during the post-confirmation process
-
-      # TABLE 2: Subscriptions - Cross-service subscription management
-      SubscriptionTable:
-        Type: AWS::DynamoDB::Table
-        DeletionPolicy: Retain
-        Properties:
-          TableName: !Sub "myai4-subscription-${AWS::StackName}"
-          BillingMode: PAY_PER_REQUEST
-          AttributeDefinitions:
-            - AttributeName: accountId
-              AttributeType: S
-            - AttributeName: subscriptionId
-              AttributeType: S
-            - AttributeName: serviceType
-              AttributeType: S
-          KeySchema:
-            - AttributeName: accountId
-              KeyType: HASH
-            - AttributeName: subscriptionId
-              KeyType: RANGE
-          GlobalSecondaryIndexes:
-            - IndexName: ServiceTypeIndex
-              KeySchema:
-                - AttributeName: serviceType
-                  KeyType: HASH
-                - AttributeName: accountId
-                  KeyType: RANGE
-              Projection:
-                ProjectionType: ALL
-          PointInTimeRecoverySpecification:
-            PointInTimeRecoveryEnabled: true
-          SSESpecification:
-            SSEEnabled: true
-          Tags:
-            - Key: Environment
-              Value: !Ref Environment
-            - Key: Service
-              Value: MyAI4-Ecosystem
-            - Key: DataType
-              Value: Subscription
-      # TABLE 3: ServicePreferences table has been removed to simplify architecture
-
-      # TABLE 4: UserUsage - Cross-service usage analytics
-      UserUsageTable:
-        Type: AWS::DynamoDB::Table
-        DeletionPolicy: Retain
-        Properties:
-          TableName: !Sub "myai4-user-usage-${AWS::StackName}"
-          BillingMode: PAY_PER_REQUEST
-          AttributeDefinitions:
-            - AttributeName: accountId
-              AttributeType: S
-            - AttributeName: timestamp
-              AttributeType: S
-            - AttributeName: serviceType
-              AttributeType: S
-          KeySchema:
-            - AttributeName: accountId
-              KeyType: HASH
-            - AttributeName: timestamp
-              KeyType: RANGE
-          GlobalSecondaryIndexes:
-            - IndexName: ServiceTypeIndex
-              KeySchema:
-                - AttributeName: serviceType
-                  KeyType: HASH
-                - AttributeName: timestamp
-                  KeyType: RANGE
-              Projection:
-                ProjectionType: ALL
-          PointInTimeRecoverySpecification:
-            PointInTimeRecoveryEnabled: true
-          SSESpecification:
-            SSEEnabled: true
-          Tags:
-            - Key: Environment
-              Value: !Ref Environment
-            - Key: Service
-              Value: MyAI4-Ecosystem
-            - Key: DataType
-              Value: UserUsage
-
-      ####################################
-      # Streaming Platform Tables
-      ####################################
-
-      # TABLE 6: Movie - Movies catalog and metadata
-      MovieTable:
-        Type: AWS::DynamoDB::Table
-        DeletionPolicy: Retain
-        Properties:
-          TableName: !Sub "myai4-movie-${AWS::StackName}"
-          BillingMode: PAY_PER_REQUEST
-          AttributeDefinitions:
-            - AttributeName: movieId
-              AttributeType: S
-            - AttributeName: genre
-              AttributeType: S
-            - AttributeName: releaseYear
-              AttributeType: S  # Changed from N to S - Numbers must be passed as strings in Default values
-            - AttributeName: title
-              AttributeType: S
-          KeySchema:
-            - AttributeName: movieId
-              KeyType: HASH
-          GlobalSecondaryIndexes:
-            - IndexName: GenreIndex
-              KeySchema:
-                - AttributeName: genre
-                  KeyType: HASH
-                - AttributeName: releaseYear
-                  KeyType: RANGE
-              Projection:
-                ProjectionType: ALL
-            - IndexName: TitleIndex
-              KeySchema:
-                - AttributeName: title
-                  KeyType: HASH
-              Projection:
-                ProjectionType: ALL
-          PointInTimeRecoverySpecification:
-            PointInTimeRecoveryEnabled: true
-          SSESpecification:
-            SSEEnabled: true
-          Tags:
-            - Key: Environment
-              Value: !Ref Environment
-            - Key: Service
-              Value: MyAI4-Stream
-            - Key: DataType
-              Value: Movies
-
-      # TABLE 7: Watchlist - User watchlists and saved content
-      WatchlistTable:
-        Type: AWS::DynamoDB::Table
-        DeletionPolicy: Retain
-        Properties:
-          TableName: !Sub "myai4-watchlists-${AWS::StackName}"
-          BillingMode: PAY_PER_REQUEST
-          AttributeDefinitions:
-            - AttributeName: accountId
-              AttributeType: S
-            - AttributeName: movieId
-              AttributeType: S
-            - AttributeName: profileId
-              AttributeType: S
-          KeySchema:
-            - AttributeName: accountId
-              KeyType: HASH
-            - AttributeName: movieId
-              KeyType: RANGE
-          GlobalSecondaryIndexes:
-            - IndexName: ProfileIndex
-              KeySchema:
-                - AttributeName: profileId
-                  KeyType: HASH
-                - AttributeName: movieId
-                  KeyType: RANGE
-              Projection:
-                ProjectionType: ALL
-          PointInTimeRecoverySpecification:
-            PointInTimeRecoveryEnabled: true
-          SSESpecification:
-            SSEEnabled: true
-          Tags:
-            - Key: Environment
-              Value: !Ref Environment
-            - Key: Service
-              Value: MyAI4-Stream
-            - Key: DataType
-              Value: Watchlists
-
-      # TABLE 8: WatchHistory - User viewing history and progress
-      WatchHistoryTable:
-        Type: AWS::DynamoDB::Table
-        DeletionPolicy: Retain
-        Properties:
-          TableName: !Sub "myai4-watch-history-${AWS::StackName}"
-          BillingMode: PAY_PER_REQUEST
-          AttributeDefinitions:
-            - AttributeName: accountId
-              AttributeType: S
-            - AttributeName: watchedAt
-              AttributeType: S
-            - AttributeName: profileId
-              AttributeType: S
-            - AttributeName: movieId
-              AttributeType: S
-          KeySchema:
-            - AttributeName: accountId
-              KeyType: HASH
-            - AttributeName: watchedAt
-              KeyType: RANGE
-          GlobalSecondaryIndexes:
-            - IndexName: ProfileIndex
-              KeySchema:
-                - AttributeName: profileId
-                  KeyType: HASH
-                - AttributeName: watchedAt
-                  KeyType: RANGE
-              Projection:
-                ProjectionType: ALL
-            - IndexName: MovieIndex
-              KeySchema:
-                - AttributeName: movieId
-                  KeyType: HASH
-                - AttributeName: watchedAt
-                  KeyType: RANGE
-              Projection:
-                ProjectionType: ALL
-          PointInTimeRecoverySpecification:
-            PointInTimeRecoveryEnabled: true
-          SSESpecification:
-            SSEEnabled: true
-          Tags:
-            - Key: Environment
-              Value: !Ref Environment
-            - Key: Service
-              Value: MyAI4-Stream
-            - Key: DataType
-              Value: WatchHistory
-
-      # TABLE 9: ProfileTable - User profiles within accounts
-      ProfileTable:
-        Type: AWS::DynamoDB::Table
-        DeletionPolicy: Retain
-        Properties:
-          TableName: !Sub "myai4-profile-${AWS::StackName}"
-          BillingMode: PAY_PER_REQUEST
-          AttributeDefinitions:
-            - AttributeName: accountId
-              AttributeType: S
-            - AttributeName: profileId
-              AttributeType: S
-          KeySchema:
-            - AttributeName: accountId
-              KeyType: HASH
-            - AttributeName: profileId
-              KeyType: RANGE
-          GlobalSecondaryIndexes:
-            - IndexName: ProfileIdIndex
-              KeySchema:
-                - AttributeName: profileId
-                  KeyType: HASH
-              Projection:
-                ProjectionType: ALL
-          PointInTimeRecoverySpecification:
-            PointInTimeRecoveryEnabled: true
-          SSESpecification:
-            SSEEnabled: true
-          Tags:
-            - Key: Environment
-              Value: !Ref Environment
-            - Key: Service
-              Value: MyAI4-Ecosystem
-            - Key: DataType
-              Value: Profile
-
-      # TABLE 10: ProfileSettings - Detailed profile settings including PIN protection
-      ProfileSettingsTable:
-        Type: AWS::DynamoDB::Table
-        DeletionPolicy: Retain
-        Properties:
-          TableName: !Sub "myai4-profile-settings-${AWS::StackName}"
-          BillingMode: PAY_PER_REQUEST
-          AttributeDefinitions:
-            - AttributeName: profileId
-              AttributeType: S
-          KeySchema:
-            - AttributeName: profileId
-              KeyType: HASH
-          PointInTimeRecoverySpecification:
-            PointInTimeRecoveryEnabled: true
-          SSESpecification:
-            SSEEnabled: true
-          Tags:
-            - Key: Environment
-              Value: !Ref Environment
-            - Key: Service
-              Value: MyAI4-Stream
-            - Key: DataType
-              Value: ProfileSettings
-              
-      # TABLE 11: ProfileAI - AI customization settings for each profile
-      ProfileAITable:
-        Type: AWS::DynamoDB::Table
-        DeletionPolicy: Retain
-        Properties:
-          TableName: !Sub "myai4-profile-ai-${AWS::StackName}"
-          BillingMode: PAY_PER_REQUEST
-          AttributeDefinitions:
-            - AttributeName: profileId
-              AttributeType: S
-          KeySchema:
-            - AttributeName: profileId
-              KeyType: HASH
-          PointInTimeRecoverySpecification:
-            PointInTimeRecoveryEnabled: true
-          SSESpecification:
-            SSEEnabled: true
-          Tags:
-            - Key: Environment
-              Value: !Ref Environment
-            - Key: Service
-              Value: MyAI4-Stream
-            - Key: DataType
-              Value: ProfileAI
-              
-      # TABLE 12: AccountsTable - Now managed by infrastructure stack
-      # This table has been moved to the infrastructure stack since it's used by the Cognito triggers
-
-    ####################################
-    # Outputs
-    ####################################
-    Outputs:
-      AccountApiUrl:
-        Description: URL of the MyAI4 Account API
-        Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/account"
-        Export:
-          Name: !Sub "${AWS::StackName}-AccountApiUrl"
-          
-      ProfileApiUrl:
-        Description: URL of the MyAI4 Profile API
-        Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/profile"
-        Export:
-          Name: !Sub "${AWS::StackName}-ProfileApiUrl"
-          
-      MovieApiUrl:
-        Description: URL of the MyAI4 Movies API
-        Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/movie"
-        Export:
-          Name: !Sub "${AWS::StackName}-MovieApiUrl"
-          
-      WatchlistApiUrl:
-        Description: URL of the MyAI4 Watchlists API
-        Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/watchlist"
-        Export:
-          Name: !Sub "${AWS::StackName}-WatchlistApiUrl"
-          
-      SubscriptionApiUrl:
-        Description: URL of the MyAI4 Subscription API
-        Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/subscription"
-        Export:
-          Name: !Sub "${AWS::StackName}-SubscriptionApiUrl"
-
-      ProfileSettingsApiUrl:
-        Description: URL of the MyAI4 Profile Settings API
-        Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/profile-settings"
-        Export:
-          Name: !Sub "${AWS::StackName}-ProfileSettingsApiUrl"
-
-      ProfileAIApiUrl:        
-        Description: URL of the MyAI4 Profile AI API
-        Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/profile-ai"
-        Export:
-          Name: !Sub "${AWS::StackName}-ProfileAIApiUrl"
-
-      SubscriptionTableName:
-        Description: Name of the Subscriptions DynamoDB table
-        Value: !Ref SubscriptionTable
-        Export:
-          Name: !Sub "${AWS::StackName}-SubscriptionTable"
-
-      UserUsageTableName:
-        Description: Name of the UserUsage DynamoDB table
-        Value: !Ref UserUsageTable
-        Export:
-          Name: !Sub "${AWS::StackName}-UserUsageTable"
-
-      MovieTableName:
-        Description: Name of the Movies DynamoDB table
-        Value: !Ref MovieTable
-        Export:
-          Name: !Sub "${AWS::StackName}-MoviesTable"
-
-      WatchlistTableName:
-        Description: Name of the Watchlists DynamoDB table
-        Value: !Ref WatchlistTable
-        Export:
-          Name: !Sub "${AWS::StackName}-WatchlistsTable"
-
-      WatchHistoryTableName:
-        Description: Name of the WatchHistory DynamoDB table
-        Value: !Ref WatchHistoryTable
-        Export:
-          Name: !Sub "${AWS::StackName}-WatchHistoryTable"
-
-      ProfileTableName:
-        Description: Name of the Profile DynamoDB table
-        Value: !Ref ProfileTable
-        Export:
-          Name: !Sub "${AWS::StackName}-ProfileTable"
-          
-      ProfileSettingsTableName:
-        Description: Name of the Profile Settings DynamoDB table
-        Value: !Ref ProfileSettingsTable
-        Export:
-          Name: !Sub "${AWS::StackName}-ProfileSettingsTable"
-          
-      ProfileAITableName:
-        Description: Name of the Profile AI DynamoDB table
-        Value: !Ref ProfileAITable
-        Export:
-          Name: !Sub "${AWS::StackName}-ProfileAITable"
-      # Removed AccountsTableName output - should be imported directly from infrastructure stack
+def handle_delete_profile(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Handler for deleteProfile operation
+    Deletes a profile from DynamoDB
+    
+    Expected data:
+    - accountId (required): The ID of the user account
+    - profileId (required): The ID of the profile to delete
+    """
+    # Validate required parameters
+    if not data.get('accountId'):
+        return {'error': 'Missing required parameter: accountId'}
+    if not data.get('profileId'):
+        return {'error': 'Missing required parameter: profileId'}
+    
+    accountId = data['accountId']
+    profileId = data['profileId']
+    
+    if not PROFILE_TABLE:
+        return {'error': 'PROFILES_TABLE environment variable is not configured'}
+    
+    try:
+        # Delete the profile from DynamoDB
+        table = dynamodb.Table(PROFILE_TABLE)
+        table.delete_item(
+            Key={
+                'accountId': accountId,
+                'profileId': profileId
+            }
+        )
+        
+        # Return success
+        return {'message': f'Profile {profileId} deleted successfully'}
+    
+    except ClientError as e:
+        print(f"DynamoDB error: {str(e)}")
+        return {'error': f'Database error: {str(e)}'}
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        return {'error': f'Unexpected error: {str(e)}'}
