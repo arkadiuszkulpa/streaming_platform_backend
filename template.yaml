@@ -248,7 +248,7 @@
               PROFILE_TABLE: !Ref ProfileTable
               ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
           Events:
-            # Handle all methods except OPTIONS
+            # Handle all methods except OPTIONS - CorsOptionsFunction handles OPTIONS
             ApiEvent:
               Type: Api
               Properties:
@@ -260,14 +260,6 @@
                   AuthorizationScopes:
                     - "myai4-api/read"
                     - "myai4-api/write"
-            # Handle OPTIONS requests without authorization for CORS preflight
-            OptionsEvent:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /profile
-                Method: OPTIONS
-                # NO AUTH SECTION - matches working inline CORS pattern
                 
       # Profile Settings Lambda Function
       ProfileSettingsApiFunction:
@@ -435,6 +427,7 @@
               WATCH_HISTORY_TABLE: !Ref WatchHistoryTable
               ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
           Events:
+            # CorsOptionsFunction handles OPTIONS - remove duplicate
             ApiEvent:
               Type: Api
               Properties:
@@ -446,15 +439,7 @@
                   AuthorizationScopes:
                     - "myai4-api/read"
                     - "myai4-api/write"
-            # Handle OPTIONS requests without authorization for CORS preflight
-            OptionsEvent:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /watchlist
-                Method: OPTIONS
-                # NO AUTH SECTION - matches working inline CORS pattern
-
+                  
       # CORS handling removed - Each lambda function handles CORS directly including OPTIONS requests
 
       ####################################
@@ -815,8 +800,16 @@
         Export:
           Name: !Sub "${AWS::StackName}-ProfileSettingsApiUrl"
 
-      ProfileAIApiUrl:
-        Description: URL of the MyAI4 Profile AI API
+          Name: !Sub "${AWS::StackName}-SubscriptionApiUrl"
+
+      ProfileSettingsApiUrl:
+        Description: URL of the MyAI4 Profile Settings API
+        Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/profile-settings"
+        Export:
+          Name: !Sub "${AWS::StackName}-ProfileSettingsApiUrl"
+
+      ProfileAIApiUrl:        Description: URL of the MyAI4 Profile AI API
+        Description: URL of the MyAI4 Profile AI API/${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/profile-ai"
         Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/profile-ai"
         Export:
           Name: !Sub "${AWS::StackName}-ProfileAIApiUrl"

@@ -71,6 +71,27 @@ def get_cors_headers(origin=None):
     print(f"Final CORS Headers: {cors_headers}")
     print(f"=== END CORS DEBUG ===")
     
+    # SAFETY CHECK: Ensure we're returning valid headers
+    if not isinstance(cors_headers, dict):
+        print(f"❌ ERROR: cors_headers is not a dict! Type: {type(cors_headers)}")
+        return {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type,Authorization",
+            "Access-Control-Allow-Credentials": "true"
+        }
+    
+    for key, value in cors_headers.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            print(f"❌ ERROR: Invalid header {key}:{value} - Key type: {type(key)}, Value type: {type(value)}")
+            return {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type,Authorization",
+                "Access-Control-Allow-Credentials": "true"
+            }
+    
+    print(f"✅ CORS headers validation passed")
     return cors_headers
 
 # Environment variables - populated from CloudFormation template
@@ -241,24 +262,13 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         headers = {k.lower(): v for k, v in event.get('headers', {}).items()}
         origin = headers.get('origin')
         
-        # Check for OPTIONS request (CORS preflight)
-        if event.get('httpMethod') == 'OPTIONS':
-            print("🔄 Handling OPTIONS request")
-            # Use the new dynamic CORS headers function
-            cors_headers = get_cors_headers(origin)
-            
-            # OPTIONS response should have NO BODY - just like the working inline CORS lambda
-            response = {
-                'statusCode': 200,
-                'headers': cors_headers
-                # NO BODY - this matches the working inline CORS lambda pattern
-            }
-            print(f"OPTIONS Response: {json.dumps(response, indent=2)}")
-            return response
+        # OPTIONS requests are now handled by CorsOptionsFunction - this should not receive them
+        http_method = event.get('httpMethod', 'GET')
+        if http_method == 'OPTIONS':
+            print("⚠️ OPTIONS request received in ProfileApiFunction - should be handled by CorsOptionsFunction")
+            return create_response(405, {'error': 'OPTIONS method not allowed in this handler'}, origin)
             
         # Parse the operation from query parameters or request body
-        http_method = event.get('httpMethod', 'GET')
-        
         if http_method == 'GET':
             # For GET requests, operation is in query parameters
             query_params = event.get('queryStringParameters') or {}
