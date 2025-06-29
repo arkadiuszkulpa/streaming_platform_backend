@@ -83,7 +83,7 @@ foreach ($lambda in $lambdasToProcess) {
     # Step 3: Update Lambda function code
     # Special case for CORS handler which uses a different naming pattern in the template
     if ($lambda -eq "cors") {
-        $functionName = "cors-handler-$stackName"
+        $functionName = "cors-options-$stackName"
     } else {
         $functionName = "${lambda}-api-$stackName"
     }

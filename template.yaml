@@ -68,11 +68,9 @@
             AddDefaultAuthorizerToCorsPreflight: false
             Authorizers:
               CognitoAuthorizer:
-                # Construct the ARN from the UserPoolId which is what the infra stack exports
-                UserPoolArn: !Sub 
-                  - "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPoolId}"
-                  - UserPoolId: !ImportValue 
-                      'Fn::Sub': '${InfraStackName}-UserPoolId'
+                # Use UserPoolId directly, not UserPoolArn
+                UserPoolId: !ImportValue 
+                  'Fn::Sub': '${InfraStackName}-UserPoolId'
                 Identity:
                   Header: Authorization
                   ValidationExpression: Bearer.*

@@ -16,84 +16,6 @@ from botocore.exceptions import ClientError
 dynamodb = boto3.resource('dynamodb')
 ssm = boto3.client('ssm')
 
-# CORS configuration using new environment variables from template
-def get_cors_headers(origin=None):
-    """
-    Generate CORS headers based on environment and origin.
-    Uses the new environment variables: CLOUDFRONT_DOMAIN, LOCAL_ORIGINS, ENVIRONMENT
-    """
-    environment = os.environ.get('ENVIRONMENT', 'dev')
-    cloudfront_domain = os.environ.get('CLOUDFRONT_DOMAIN', '')
-    local_origins_str = os.environ.get('LOCAL_ORIGINS', '')
-    
-    # Build allowed origins list
-    allowed_origins = []
-    
-    # Always add CloudFront domain if available
-    if cloudfront_domain:
-        # Ensure we have the full URL format - add https:// if not present
-        if cloudfront_domain.startswith('http'):
-            allowed_origins.append(cloudfront_domain)
-        else:
-            allowed_origins.append(f"https://{cloudfront_domain}")
-    
-    # Add localhost origins for dev environment or any environment (for debugging)
-    if local_origins_str:
-        local_origins = [o.strip() for o in local_origins_str.split(',') if o.strip()]
-        allowed_origins.extend(local_origins)
-    
-    # Enhanced debugging
-    print(f"=== CORS DEBUG ===")
-    print(f"Environment: {environment}")
-    print(f"CloudFront Domain Raw: '{cloudfront_domain}'")
-    print(f"Local Origins Raw: '{local_origins_str}'")
-    print(f"Request Origin: '{origin}'")
-    print(f"Allowed Origins: {allowed_origins}")
-    
-    # Determine which origin to use
-    cors_origin = "*"  # fallback
-    if origin and origin in allowed_origins:
-        cors_origin = origin
-        print(f"✅ CORS - Exact match for origin: {origin}")
-    elif allowed_origins:
-        cors_origin = allowed_origins[0]  # Use first allowed as fallback
-        print(f"⚠️ CORS - Using fallback origin: {cors_origin} (requested: {origin})")
-    else:
-        print(f"❌ CORS - No allowed origins configured, using wildcard")
-    
-    cors_headers = {
-        "Access-Control-Allow-Origin": cors_origin,
-        "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With",
-        "Access-Control-Allow-Credentials": "true"
-    }
-    
-    print(f"Final CORS Headers: {cors_headers}")
-    print(f"=== END CORS DEBUG ===")
-    
-    # SAFETY CHECK: Ensure we're returning valid headers
-    if not isinstance(cors_headers, dict):
-        print(f"❌ ERROR: cors_headers is not a dict! Type: {type(cors_headers)}")
-        return {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type,Authorization",
-            "Access-Control-Allow-Credentials": "true"
-        }
-    
-    for key, value in cors_headers.items():
-        if not isinstance(key, str) or not isinstance(value, str):
-            print(f"❌ ERROR: Invalid header {key}:{value} - Key type: {type(key)}, Value type: {type(value)}")
-            return {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type,Authorization",
-                "Access-Control-Allow-Credentials": "true"
-            }
-    
-    print(f"✅ CORS headers validation passed")
-    return cors_headers
-
 # Environment variables - populated from CloudFormation template
 PROFILE_TABLE = os.environ.get('PROFILE_TABLE')  # This points to the ProfilesTable resource
 ACCOUNT_TABLE = os.environ.get('ACCOUNT_TABLE')  # Table for user accounts (imported from infrastructure stack)
@@ -226,10 +148,8 @@ def handle_test(data: Dict[str, Any]) -> Dict[str, Any]:
         'messages': messages
     }
 
-# Removed is_origin_allowed function - now using get_cors_headers for all CORS logic
-
-def create_response(status_code: int, body: Dict[str, Any], origin: Optional[str] = None) -> Dict[str, Any]:
-    """Create an API Gateway response object with proper CORS headers"""
+def create_response(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:
+    """Create an API Gateway response object"""
     response = {
         'statusCode': status_code,
         'headers': {
@@ -237,10 +157,6 @@ def create_response(status_code: int, body: Dict[str, Any], origin: Optional[str
         },
         'body': json.dumps(body)
     }
-    
-    # Add dynamic CORS headers using the new function
-    cors_headers = get_cors_headers(origin)
-    response['headers'].update(cors_headers)
     
     return response
 
@@ -258,15 +174,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         print(f"Request Context: {json.dumps(event.get('requestContext', {}), indent=2)}")
         print(f"=== END REQUEST DEBUG ===")
         
-        # Extract origin from request headers (case-insensitive)
-        headers = {k.lower(): v for k, v in event.get('headers', {}).items()}
-        origin = headers.get('origin')
-        
         # OPTIONS requests are now handled by CorsOptionsFunction - this should not receive them
         http_method = event.get('httpMethod', 'GET')
         if http_method == 'OPTIONS':
             print("⚠️ OPTIONS request received in ProfileApiFunction - should be handled by CorsOptionsFunction")
-            return create_response(405, {'error': 'OPTIONS method not allowed in this handler'}, origin)
+            return create_response(405, {'error': 'OPTIONS method not allowed in this handler'})
             
         # Parse the operation from query parameters or request body
         if http_method == 'GET':
@@ -281,7 +193,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             data = body.get('data', {})
             
         if not operation:
-            return create_response(400, {'error': 'Operation parameter is required'}, origin)
+            return create_response(400, {'error': 'Operation parameter is required'})
             
         # Route to appropriate handler
         handlers = {
@@ -298,14 +210,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         handler = handlers.get(operation)
         if not handler:
-            return create_response(400, {'error': f'Unknown operation: {operation}'}, origin)
+            return create_response(400, {'error': f'Unknown operation: {operation}'})
             
         # Execute the handler - no authentication check as API Gateway handles it
         result = handler(data)
-        return create_response(200, result, origin)
+        return create_response(200, result)
     except Exception as e:
         print(f"Error in lambda_handler: {str(e)}")
-        return create_response(500, {'error': 'Internal server error', 'details': str(e)}, origin)
+        return create_response(500, {'error': 'Internal server error', 'details': str(e)})
 
 def handle_get_profiles(data: Dict[str, Any]) -> Dict[str, Any]:
     """
