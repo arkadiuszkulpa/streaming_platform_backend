@@ -68,12 +68,11 @@
             AddDefaultAuthorizerToCorsPreflight: false
             Authorizers:
               CognitoAuthorizer:
-                # Use UserPoolId directly, not UserPoolArn
-                UserPoolId: !ImportValue 
-                  'Fn::Sub': '${InfraStackName}-UserPoolId'
-                Identity:
-                  Header: Authorization
-                  ValidationExpression: Bearer.*
+                UserPoolArn: !Sub 
+                  - "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPoolId}"
+                  - UserPoolId: !ImportValue 
+                      'Fn::Sub': '${InfraStackName}-UserPoolId'
+                AuthType: COGNITO_USER_POOLS
           OpenApiVersion: 3.0.1
           Models:
             Empty:
