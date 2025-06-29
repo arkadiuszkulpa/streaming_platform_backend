@@ -73,9 +73,9 @@
                   - UserPoolId: !ImportValue 
                       'Fn::Sub': '${InfraStackName}-UserPoolId'
                 AuthType: COGNITO_USER_POOLS
-                Identity:
-                  Header: Authorization
-                  ValidationExpression: "Bearer.*"
+                # Identity:
+                #   Header: Authorization
+                #   ValidationExpression: "Bearer.*"
           OpenApiVersion: 3.0.1
           Models:
             Empty:
