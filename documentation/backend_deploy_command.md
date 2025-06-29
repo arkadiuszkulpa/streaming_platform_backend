@@ -20,8 +20,14 @@ aws secretsmanager update-secret --secret-id "myai4/rapidapi/keys/" --secret-str
 
 ## Quick Lambda Update (After Deployment)
 # Update Lambda code only (much faster than full deployment)
-# Make sure to use the correct stack name
-cd c:\Projects\streaming_platform_backend; .\refresh-lambda_handler.ps1 -dev myai4-backend-dev -prod myai4-backend-prod
+# Update all functions in dev environment (default)
+cd c:\Projects\streaming_platform_backend; .\refresh-lambda_handler.ps1 -environment dev -stackName myai4-backend-dev
+
+# Update a specific lambda function in dev
+cd c:\Projects\streaming_platform_backend; .\refresh-lambda_handler.ps1 -environment dev -stackName myai4-backend-dev -lambdaName profile
+
+# Update for production (only when dev is fully tested)
+cd c:\Projects\streaming_platform_backend; .\refresh-lambda_handler.ps1 -environment prod -stackName myai4-backend-prod
 
 ## Test API Connectivity
 # Get API URL from CloudFormation outputs
@@ -36,9 +42,3 @@ aws cloudformation delete-stack --stack-name myai4-backend-dev
 
 # Create S3 bucket for deployment artifacts (one-time setup)
 aws s3 mb s3://myai4-deployment-artifacts
-
-# From powershell script to check GSI status
-.\check-gsi-changes.ps1 -Environment dev -Region eu-west-2
-
-# From PowerShell script to deploy GSI changes
-.\deploy-gsi-changes.ps1 -Environment dev -Region eu-west-2
