@@ -798,17 +798,8 @@
         Export:
           Name: !Sub "${AWS::StackName}-ProfileSettingsApiUrl"
 
-          Name: !Sub "${AWS::StackName}-SubscriptionApiUrl"
-
-      ProfileSettingsApiUrl:
-        Description: URL of the MyAI4 Profile Settings API
-        Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/profile-settings"
-        Export:
-          Name: !Sub "${AWS::StackName}-ProfileSettingsApiUrl"
-
       ProfileAIApiUrl:        
         Description: URL of the MyAI4 Profile AI API
-        Description: URL of the MyAI4 Profile AI API/${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/profile-ai"
         Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/profile-ai"
         Export:
           Name: !Sub "${AWS::StackName}-ProfileAIApiUrl"
@@ -818,7 +809,6 @@
         Value: !Ref SubscriptionTable
         Export:
           Name: !Sub "${AWS::StackName}-SubscriptionTable"
-      # ServicePreferencesTableName has been removed as the table was removed
 
       UserUsageTableName:
         Description: Name of the UserUsage DynamoDB table
