@@ -808,7 +808,8 @@
         Export:
           Name: !Sub "${AWS::StackName}-ProfileSettingsApiUrl"
 
-      ProfileAIApiUrl:        Description: URL of the MyAI4 Profile AI API
+      ProfileAIApiUrl:        
+        Description: URL of the MyAI4 Profile AI API
         Description: URL of the MyAI4 Profile AI API/${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/profile-ai"
         Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/profile-ai"
         Export:
