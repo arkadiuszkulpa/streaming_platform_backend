@@ -22,7 +22,6 @@ $lambdaFunctions = @{
     "movie" = "lambda_handler_movie.py"
     "subscription" = "lambda_handler_subscription.py"
     "watchlist" = "lambda_handler_watchlist.py"
-    "cors" = "lambda_handler_cors.py"
 }
 
 Write-Host "Starting Lambda handler code refresh for stack: $stackName (Environment: $environment)" -ForegroundColor Cyan
@@ -81,12 +80,7 @@ foreach ($lambda in $lambdasToProcess) {
     Write-Host "Uploaded to S3: s3://$zipBucket/$lambda.zip" -ForegroundColor Gray
     
     # Step 3: Update Lambda function code
-    # Special case for CORS handler which uses a different naming pattern in the template
-    if ($lambda -eq "cors") {
-        $functionName = "cors-options-$stackName"
-    } else {
-        $functionName = "${lambda}-api-$stackName"
-    }
+    $functionName = "${lambda}-api-$stackName"
     
     try {
         Write-Host "Updating function: $functionName..."
