@@ -148,18 +148,59 @@ def handle_test(data: Dict[str, Any]) -> Dict[str, Any]:
         'messages': messages
     }
 
-def create_response(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:
+def get_allowed_origin(request_origin: str) -> str:
+    """Determine the appropriate CORS origin response"""
+    environment = os.environ.get('ENVIRONMENT', 'dev')
+    cloudfront_domain = os.environ.get('CLOUDFRONT_DOMAIN', '')
+    local_origins_str = os.environ.get('LOCAL_ORIGINS', '')
+    
+    allowed_origins = []
+    
+    # Add CloudFront domain
+    if cloudfront_domain:
+        if cloudfront_domain.startswith('http'):
+            allowed_origins.append(cloudfront_domain)
+        else:
+            allowed_origins.append(f"https://{cloudfront_domain}")
+    
+    # Add local origins for dev environment
+    if local_origins_str:
+        local_origins = [o.strip() for o in local_origins_str.split(',') if o.strip()]
+        allowed_origins.extend(local_origins)
+    
+    # Only return specific origin if it matches allowed origins
+    if request_origin and request_origin in allowed_origins:
+        return request_origin
+    elif environment == 'prod' and cloudfront_domain:
+        # In production, default to CloudFront domain if origin doesn't match
+        return f"https://{cloudfront_domain}" if not cloudfront_domain.startswith('http') else cloudfront_domain
+    else:
+        # For dev/test environments, allow any origin as fallback
+        return "*"
+
+def create_response(status_code: int, body: Dict[str, Any], event: Dict[str, Any] = None) -> Dict[str, Any]:
     """Create an API Gateway response object with proper CORS headers"""
+    # Get origin from request headers
+    headers = event.get('headers', {}) if event else {}
+    origin = headers.get('origin', headers.get('Origin', ''))
+    
+    # Determine allowed origin
+    allowed_origin = get_allowed_origin(origin)
+    
     response = {
         'statusCode': status_code,
         'headers': {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Origin': allowed_origin,
             'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token',
             'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
         },
         'body': json.dumps(body)
     }
+    
+    # Add credentials header only if not using wildcard origin
+    if allowed_origin != "*":
+        response['headers']['Access-Control-Allow-Credentials'] = 'true'
     
     return response
 
@@ -176,7 +217,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         http_method = event.get('httpMethod', 'GET')
         if http_method == 'OPTIONS':
             print("✅ Handling OPTIONS preflight request")
-            return create_response(200, {'message': 'CORS preflight response'})
+            return create_response(200, {'message': 'CORS preflight response'}, event)
             
         # Parse operation from request body (all requests use POST method)
         try:
@@ -186,11 +227,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             print(f"✅ Operation: {operation}")
         except json.JSONDecodeError as e:
             print(f"❌ JSON decode error: {str(e)}")
-            return create_response(400, {'error': 'Invalid JSON in request body'})
+            return create_response(400, {'error': 'Invalid JSON in request body'}, event)
             
         if not operation:
             print("❌ No operation specified")
-            return create_response(400, {'error': 'Operation parameter is required'})
+            return create_response(400, {'error': 'Operation parameter is required'}, event)
             
         # Route to appropriate handler
         handlers = {
@@ -208,17 +249,17 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         handler = handlers.get(operation)
         if not handler:
             print(f"❌ Unknown operation: {operation}")
-            return create_response(400, {'error': f'Unknown operation: {operation}'})
+            return create_response(400, {'error': f'Unknown operation: {operation}'}, event)
             
         # Execute the handler
         print(f"✅ Executing: {operation}")
         result = handler(data)
-        return create_response(200, result)
+        return create_response(200, result, event)  # Pass event here
     except Exception as e:
         print(f"❌ Error in lambda_handler: {str(e)}")
         import traceback
         traceback.print_exc()
-        return create_response(500, {'error': 'Internal server error', 'details': str(e)})
+        return create_response(500, {'error': 'Internal server error', 'details': str(e)}, event)  # Pass event here
 
 def handle_get_profiles(data: Dict[str, Any]) -> Dict[str, Any]:
     """
