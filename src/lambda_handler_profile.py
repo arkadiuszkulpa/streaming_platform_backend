@@ -154,29 +154,37 @@ def get_allowed_origin(request_origin: str) -> str:
     cloudfront_domain = os.environ.get('CLOUDFRONT_DOMAIN', '')
     local_origins_str = os.environ.get('LOCAL_ORIGINS', '')
     
-    allowed_origins = []
+    allowed_origins = set()
     
-    # Add CloudFront domain
+    # CloudFront domain is always allowed
     if cloudfront_domain:
-        if cloudfront_domain.startswith('http'):
-            allowed_origins.append(cloudfront_domain)
-        else:
-            allowed_origins.append(f"https://{cloudfront_domain}")
+        cloudfront_url = f"https://{cloudfront_domain}"
+        allowed_origins.add(cloudfront_url)
     
-    # Add local origins for dev environment
-    if local_origins_str:
+    # In prod, also allow myai4 domains that point to our CloudFront
+    if environment == 'prod':
+        prod_domains = [
+            'https://myai4.co.uk',
+            'https://www.myai4.co.uk',
+            'https://myai4stream.co.uk',
+            'https://www.myai4stream.co.uk'
+        ]
+        allowed_origins.update(prod_domains)
+        print(f"🔍 Production mode - allowing myai4 domains: {prod_domains}")
+    
+    # In dev, allow local development
+    elif environment == 'dev' and local_origins_str:
         local_origins = [o.strip() for o in local_origins_str.split(',') if o.strip()]
-        allowed_origins.extend(local_origins)
+        allowed_origins.update(local_origins)
+        print(f"🔍 Dev mode - allowing local origins: {local_origins}")
     
-    # Only return specific origin if it matches allowed origins
-    if request_origin and request_origin in allowed_origins:
+    print(f"🔍 Request Origin: {request_origin}")
+    print(f"🔍 Allowed Origins: {allowed_origins}")
+    
+    # Return matching origin or default to CloudFront
+    if request_origin in allowed_origins:
         return request_origin
-    elif environment == 'prod' and cloudfront_domain:
-        # In production, default to CloudFront domain if origin doesn't match
-        return f"https://{cloudfront_domain}" if not cloudfront_domain.startswith('http') else cloudfront_domain
-    else:
-        # For dev/test environments, allow any origin as fallback
-        return "*"
+    return next(iter(allowed_origins)) if allowed_origins else "*"
 
 def create_response(status_code: int, body: Dict[str, Any], event: Dict[str, Any] = None) -> Dict[str, Any]:
     """Create an API Gateway response object with proper CORS headers"""

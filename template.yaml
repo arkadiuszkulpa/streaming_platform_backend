@@ -26,8 +26,7 @@
         dev:
           LocalOrigins: "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000"
         prod:
-          LocalOrigins: ""  # No localhost origins in production
-          CustomDomains: "https://myai4.co.uk,https://www.myai4.co.uk,https://myai4stream.co.uk,https://www.myai4stream.co.uk,https://myai4stream.com,https://www.myai4stream.com"
+          LocalOrigins: ""  # No localhost in production
 
     Globals:
       Function:
@@ -36,15 +35,11 @@
         MemorySize: 256
         Environment:
           Variables:
-            # Dynamic CORS origins based on environment - ADDED FOR CORS FIX
+            # Only need CloudFront and LocalOrigins
             CLOUDFRONT_DOMAIN: !ImportValue
               'Fn::Sub': '${InfraStackName}-CloudFrontDomainName'
             LOCAL_ORIGINS: !FindInMap [EnvironmentConfig, !Ref Environment, LocalOrigins]
-            # Keep existing ALLOWED_ORIGINS for backward compatibility
-            ALLOWED_ORIGINS: !Sub
-              - "https://${CloudFrontDomain}"
-              - CloudFrontDomain:
-                  Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
+            # Remove CUSTOM_DOMAINS and old ALLOWED_ORIGINS
         Tags:
           Environment: !Ref Environment
           Project: !Ref AWS::StackName
@@ -189,8 +184,7 @@
               PROFILE_TABLE: !Ref ProfileTable
               ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
           Events:
-            # Handle all methods including OPTIONS - CORS handled by Lambda
-            ApiEvent:
+            ProfileEvent:
               Type: Api
               Properties:
                 RestApiId: !Ref ApiGateway
@@ -201,6 +195,14 @@
                   AuthorizationScopes:
                     - "myai4-api/read"
                     - "myai4-api/write"
+            # Add explicit OPTIONS method without auth
+            ProfileOptionsEvent:
+              Type: Api
+              Properties:
+                RestApiId: !Ref ApiGateway
+                Path: /profile
+                Method: OPTIONS
+                Auth: NONE  # No authorization for OPTIONS
                 
       # Profile Settings Lambda Function
       ProfileSettingsApiFunction:
