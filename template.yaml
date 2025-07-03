@@ -165,6 +165,65 @@
                     - "myai4-api/read"
                     - "myai4-api/write"
                 
+      # Dedicated CORS Lambda Function - handles ALL OPTIONS requests
+      CorsOptionsFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+          FunctionName: !Sub "cors-options-${AWS::StackName}"
+          CodeUri: src/
+          Handler: lambda_handler_cors.lambda_handler
+          Runtime: python3.12
+          Role: !GetAtt LambdaExecutionRole.Arn
+          Environment:
+            Variables:
+              ENVIRONMENT: !Ref Environment
+              CLOUDFRONT_DOMAIN: !ImportValue
+                'Fn::Sub': "${InfraStackName}-CloudFrontDomainName"
+              LOCAL_ORIGINS: !FindInMap [EnvironmentConfig, !Ref Environment, LocalOrigins]
+          Events:
+            AccountOptions:
+              Type: Api
+              Properties:
+                RestApiId: !Ref ApiGateway
+                Path: /account
+                Method: OPTIONS
+            ProfileOptions:
+              Type: Api
+              Properties:
+                RestApiId: !Ref ApiGateway
+                Path: /profile
+                Method: OPTIONS
+            ProfileSettingsOptions:
+              Type: Api
+              Properties:
+                RestApiId: !Ref ApiGateway
+                Path: /profile-settings
+                Method: OPTIONS
+            ProfileAIOptions:
+              Type: Api
+              Properties:
+                RestApiId: !Ref ApiGateway
+                Path: /profile-ai
+                Method: OPTIONS
+            MovieOptions:
+              Type: Api
+              Properties:
+                RestApiId: !Ref ApiGateway
+                Path: /movie
+                Method: OPTIONS
+            SubscriptionOptions:
+              Type: Api
+              Properties:
+                RestApiId: !Ref ApiGateway
+                Path: /subscription
+                Method: OPTIONS
+            WatchlistOptions:
+              Type: Api
+              Properties:
+                RestApiId: !Ref ApiGateway
+                Path: /watchlist
+                Method: OPTIONS
+                
       # Profile Lambda Function
       ProfileApiFunction:
         Type: AWS::Serverless::Function

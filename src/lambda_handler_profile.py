@@ -8,8 +8,6 @@ and other MyAI4 services.
 import os
 import json
 import boto3
-import uuid
-import traceback
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from botocore.exceptions import ClientError
@@ -152,43 +150,17 @@ def handle_test(data: Dict[str, Any]) -> Dict[str, Any]:
 
 def create_response(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:
     """Create an API Gateway response object with proper CORS headers"""
-    # Get environment and origin configuration
-    environment = os.environ.get('ENVIRONMENT', 'dev')
-    cloudfront_domain = os.environ.get('CLOUDFRONT_DOMAIN', '')
-    local_origins_str = os.environ.get('LOCAL_ORIGINS', '')
-    
-    # Extract origin from the request (would need to be passed from lambda_handler)
-    origin = '*'  # Default fallback
-    
-    # Build allowed origins list
-    allowed_origins = []
-    
-    # Add CloudFront domain if available
-    if cloudfront_domain:
-        if cloudfront_domain.startswith('http'):
-            allowed_origins.append(cloudfront_domain)
-        else:
-            allowed_origins.append(f"https://{cloudfront_domain}")
-    
-    # Add localhost origins for dev environment
-    if local_origins_str:
-        local_origins = [o.strip() for o in local_origins_str.split(',') if o.strip()]
-        allowed_origins.extend(local_origins)
-    
-    # Use first allowed origin as fallback if no match (safer than '*')
-    cors_origin = allowed_origins[0] if allowed_origins else '*'
-    
     response = {
         'statusCode': status_code,
         'headers': {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': cors_origin,
-            'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-CSRF-Token,X-Requested-With',
-            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-            'Access-Control-Allow-Credentials': 'true'
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token',
+            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
         },
         'body': json.dumps(body)
     }
+    
     return response
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -457,7 +429,7 @@ def handle_delete_profile(data: Dict[str, Any]) -> Dict[str, Any]:
     profileId = data['profileId']
     
     if not PROFILE_TABLE:
-        return {'error': 'PROFILE_TABLE environment variable is not configured'}
+        return {'error': 'PROFILES_TABLE environment variable is not configured'}
     
     try:
         # Delete the profile from DynamoDB
