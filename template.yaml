@@ -195,14 +195,15 @@
                   AuthorizationScopes:
                     - "myai4-api/read"
                     - "myai4-api/write"
-            # Add explicit OPTIONS method without auth
             ProfileOptionsEvent:
               Type: Api
               Properties:
                 RestApiId: !Ref ApiGateway
                 Path: /profile
                 Method: OPTIONS
-                Auth: NONE  # No authorization for OPTIONS
+                Auth:
+                  # CORS preflight requests should bypass auth
+                  Authorizer: NONE
                 
       # Profile Settings Lambda Function
       ProfileSettingsApiFunction:
