@@ -26,8 +26,7 @@
         dev:
           LocalOrigins: "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000"
         prod:
-          LocalOrigins: ""  # No localhost origins in production
-          CustomDomains: "https://myai4.co.uk,https://www.myai4.co.uk,https://myai4stream.co.uk,https://www.myai4stream.co.uk,https://myai4stream.com,https://www.myai4stream.com"
+          LocalOrigins: ""  # No localhost in production
 
     Globals:
       Function:
@@ -36,15 +35,11 @@
         MemorySize: 256
         Environment:
           Variables:
-            # Dynamic CORS origins based on environment - ADDED FOR CORS FIX
+            # Only need CloudFront and LocalOrigins
             CLOUDFRONT_DOMAIN: !ImportValue
               'Fn::Sub': '${InfraStackName}-CloudFrontDomainName'
             LOCAL_ORIGINS: !FindInMap [EnvironmentConfig, !Ref Environment, LocalOrigins]
-            # Keep existing ALLOWED_ORIGINS for backward compatibility
-            ALLOWED_ORIGINS: !Sub
-              - "https://${CloudFrontDomain}"
-              - CloudFrontDomain:
-                  Fn::ImportValue: !Sub "${InfraStackName}-CloudFrontDomainName"
+            # Remove CUSTOM_DOMAINS and old ALLOWED_ORIGINS
         Tags:
           Environment: !Ref Environment
           Project: !Ref AWS::StackName
@@ -65,7 +60,7 @@
               MetricsEnabled: true
           Auth:
             DefaultAuthorizer: CognitoAuthorizer
-            AddDefaultAuthorizerToCorsPreflight: false
+            AddDefaultAuthorizerToCorsPreflight: false  # Keep this false
             Authorizers:
               CognitoAuthorizer:
                 UserPoolArn: !Sub 
@@ -165,65 +160,6 @@
                     - "myai4-api/read"
                     - "myai4-api/write"
                 
-      # Dedicated CORS Lambda Function - handles ALL OPTIONS requests
-      CorsOptionsFunction:
-        Type: AWS::Serverless::Function
-        Properties:
-          FunctionName: !Sub "cors-options-${AWS::StackName}"
-          CodeUri: src/
-          Handler: lambda_handler_cors.lambda_handler
-          Runtime: python3.12
-          Role: !GetAtt LambdaExecutionRole.Arn
-          Environment:
-            Variables:
-              ENVIRONMENT: !Ref Environment
-              CLOUDFRONT_DOMAIN: !ImportValue
-                'Fn::Sub': "${InfraStackName}-CloudFrontDomainName"
-              LOCAL_ORIGINS: !FindInMap [EnvironmentConfig, !Ref Environment, LocalOrigins]
-          Events:
-            AccountOptions:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /account
-                Method: OPTIONS
-            ProfileOptions:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /profile
-                Method: OPTIONS
-            ProfileSettingsOptions:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /profile-settings
-                Method: OPTIONS
-            ProfileAIOptions:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /profile-ai
-                Method: OPTIONS
-            MovieOptions:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /movie
-                Method: OPTIONS
-            SubscriptionOptions:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /subscription
-                Method: OPTIONS
-            WatchlistOptions:
-              Type: Api
-              Properties:
-                RestApiId: !Ref ApiGateway
-                Path: /watchlist
-                Method: OPTIONS
-                
       # Profile Lambda Function
       ProfileApiFunction:
         Type: AWS::Serverless::Function
@@ -248,8 +184,7 @@
               PROFILE_TABLE: !Ref ProfileTable
               ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
           Events:
-            # Handle all methods except OPTIONS - CorsOptionsFunction handles OPTIONS
-            ApiEvent:
+            ProfileEvent:
               Type: Api
               Properties:
                 RestApiId: !Ref ApiGateway
@@ -260,6 +195,15 @@
                   AuthorizationScopes:
                     - "myai4-api/read"
                     - "myai4-api/write"
+            ProfileOptionsEvent:
+              Type: Api
+              Properties:
+                RestApiId: !Ref ApiGateway
+                Path: /profile
+                Method: OPTIONS
+                Auth:
+                  # CORS preflight requests should bypass auth
+                  Authorizer: NONE
                 
       # Profile Settings Lambda Function
       ProfileSettingsApiFunction:
@@ -353,6 +297,7 @@
               ACCOUNT_TABLE:
                 Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
               MOVIES_TABLE: !Ref MovieTable
+              WATCH_HISTORY_TABLE: !Ref WatchHistoryTable  # Add this line
               ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
           Events:
             ApiEvent:
@@ -853,4 +798,9 @@
         Value: !Ref ProfileAITable
         Export:
           Name: !Sub "${AWS::StackName}-ProfileAITable"
+      WatchHistoryApiUrl:
+        Description: URL of the MyAI4 Watch History API
+        Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/watch-history"
+        Export:
+          Name: !Sub "${AWS::StackName}-WatchHistoryApiUrl"
       # Removed AccountsTableName output - should be imported directly from infrastructure stack
