@@ -25,8 +25,10 @@
       EnvironmentConfig:
         dev:
           LocalOrigins: "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000"
+          CustomDomains: "myai4.co.uk,www.myai4.co.uk,myai4stream.co.uk,www.myai4stream.co.uk,myai4stream.com,www.myai4stream.com"
         prod:
           LocalOrigins: ""  # No localhost in production
+          CustomDomains: "myai4.co.uk,www.myai4.co.uk,myai4stream.co.uk,www.myai4stream.co.uk,myai4stream.com,www.myai4stream.com"
 
     Globals:
       Function:
@@ -35,11 +37,12 @@
         MemorySize: 256
         Environment:
           Variables:
-            # Only need CloudFront and LocalOrigins
+            # CloudFront and Origins configuration
             CLOUDFRONT_DOMAIN: !ImportValue
               'Fn::Sub': '${InfraStackName}-CloudFrontDomainName'
             LOCAL_ORIGINS: !FindInMap [EnvironmentConfig, !Ref Environment, LocalOrigins]
-            # Remove CUSTOM_DOMAINS and old ALLOWED_ORIGINS
+            CUSTOM_DOMAINS: !FindInMap [EnvironmentConfig, !Ref Environment, CustomDomains]
+            ENVIRONMENT: !Ref Environment
         Tags:
           Environment: !Ref Environment
           Project: !Ref AWS::StackName
