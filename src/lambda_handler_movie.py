@@ -148,28 +148,89 @@ def handle_test(data: Dict[str, Any]) -> Dict[str, Any]:
         'messages': messages
     }
 
-def create_response(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:
-    """Create an API Gateway response object"""
-    return {
+def get_allowed_origin(request_origin: str) -> str:
+    """Determine the appropriate CORS origin response"""
+    environment = os.environ.get('ENVIRONMENT', 'dev')
+    cloudfront_domain = os.environ.get('CLOUDFRONT_DOMAIN', '')
+    local_origins_str = os.environ.get('LOCAL_ORIGINS', '')
+    
+    allowed_origins = set()
+    
+    # Production domains - always allow CloudFront and myai4 domains
+    if environment == 'prod':
+        # Add CloudFront domain
+        if cloudfront_domain:
+            allowed_origins.add(f"https://{cloudfront_domain}")
+            
+        # Add custom domains
+        custom_domains = os.environ.get('CUSTOM_DOMAINS', '').split(',')
+        for domain in custom_domains:
+            if domain:
+                allowed_origins.add(f"https://{domain.strip()}")
+        
+        print(f"🔍 Production mode - allowing domains: {allowed_origins}")
+    
+    # Development - allow CloudFront and localhost
+    elif environment == 'dev':
+        # Always add dev CloudFront
+        if cloudfront_domain:
+            allowed_origins.add(f"https://{cloudfront_domain}")
+            
+        # Add localhost origins
+        if local_origins_str:
+            local_origins = [o.strip() for o in local_origins_str.split(',') if o.strip()]
+            allowed_origins.update(local_origins)
+        print(f"🔍 Dev mode - allowing CloudFront and local: {allowed_origins}")
+    
+    print(f"🔍 Request Origin: {request_origin}")
+    print(f"🔍 Allowed Origins: {allowed_origins}")
+    
+    # Return matching origin if found, otherwise default to CloudFront
+    if request_origin and request_origin in allowed_origins:
+        return request_origin
+        
+    # Default to CloudFront URL or * as last resort
+    cloudfront_url = f"https://{cloudfront_domain}" if cloudfront_domain else "*"
+    return cloudfront_url
+
+def create_response(status_code: int, body: Dict[str, Any], event: Dict[str, Any] = None) -> Dict[str, Any]:
+    """Create an API Gateway response object with proper CORS headers"""
+    # Get origin from request headers
+    headers = event.get('headers', {}) if event else {}
+    origin = headers.get('origin', headers.get('Origin', ''))
+    
+    # Determine allowed origin
+    allowed_origin = get_allowed_origin(origin)
+    
+    response = {
         'statusCode': status_code,
         'headers': {
             'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',  # For CORS support
-            'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-            'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+            'Access-Control-Allow-Origin': allowed_origin,
+            'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token',
+            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
         },
         'body': json.dumps(body)
     }
+    
+    # Add credentials header only if not using wildcard origin
+    if allowed_origin != "*":
+        response['headers']['Access-Control-Allow-Credentials'] = 'true'
+    
+    return response
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """
-    Centralized Lambda handler for MyAI4 ecosystem operations
-    """
+    """Movie Lambda handler"""
     try:
-        # Check for OPTIONS request (CORS preflight)
-        if event.get('httpMethod') == 'OPTIONS':
-            return create_response(200, {'message': 'CORS preflight successful'})
-            
+        # Log basic request info for debugging
+        print(f"🔍 {event.get('httpMethod')} {event.get('path')}")
+        
+        # Handle OPTIONS requests for CORS preflight
+        http_method = event.get('httpMethod', 'GET')
+        if http_method == 'OPTIONS':
+            print("✅ Handling OPTIONS preflight request")
+            return create_response(200, {'message': 'CORS preflight response'}, event)
+        
         # Parse the operation from query parameters or request body
         http_method = event.get('httpMethod', 'GET')
         
@@ -185,7 +246,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             data = body.get('data', {})
             
         if not operation:
-            return create_response(400, {'error': 'Operation parameter is required'})
+            return create_response(400, {'error': 'Operation parameter is required'}, event)
             
         # Route to appropriate handler
         handlers = {
@@ -223,15 +284,17 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         handler = handlers.get(operation)
         if not handler:
-            return create_response(400, {'error': f'Unknown operation: {operation}'})
+            return create_response(400, {'error': f'Unknown operation: {operation}'}, event)
             
         # Execute the handler
         result = handler(data)
-        return create_response(200, result)
+        return create_response(200, result, event)
         
     except Exception as e:
-        print(f"Error in lambda_handler: {str(e)}")
-        return create_response(500, {'error': 'Internal server error', 'details': str(e)})
+        print(f"❌ Error in lambda_handler: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return create_response(500, {'error': 'Internal server error', 'details': str(e)}, event)
 
 def handle_get_movies(data: Dict[str, Any]) -> Dict[str, Any]:
     """Handler for getMovies operation"""
