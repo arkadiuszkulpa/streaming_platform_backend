@@ -229,6 +229,11 @@
                 Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
               PROFILE_TABLE: !Ref ProfileTable
               PROFILE_SETTINGS_TABLE: !Ref ProfileSettingsTable
+              PROFILE_SETTINGS_L1_TABLE: !Ref ProfileSettingsLevel1Table
+              PROFILE_SETTINGS_L2_TABLE: !Ref ProfileSettingsLevel2Table
+              PROFILE_SETTINGS_L3_TABLE: !Ref ProfileSettingsLevel3Table
+              GENRE_TABLE: !Ref GenreTable
+              THEME_TABLE: !Ref ThemeTable
               ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
           Events:
             ApiEvent:
@@ -300,8 +305,14 @@
               ACCOUNT_TABLE:
                 Fn::ImportValue: !Sub "${InfraStackName}-AccountTable"
               MOVIES_TABLE: !Ref MovieTable
-              WATCH_HISTORY_TABLE: !Ref WatchHistoryTable  # Add this line
-              ENVIRONMENT: !Ref Environment # Added for enhanced test diagnostics
+              WATCH_HISTORY_TABLE: !Ref WatchHistoryTable
+              GENRE_TABLE: !Ref GenreTable
+              THEME_TABLE: !Ref ThemeTable
+              ACTOR_TABLE: !Ref ActorTable
+              DIRECTOR_TABLE: !Ref DirectorTable
+              FRANCHISE_TABLE: !Ref FranchiseTable
+              STUDIO_TABLE: !Ref StudioTable
+              ENVIRONMENT: !Ref Environment
           Events:
             ApiEvent:
               Type: Api
@@ -493,28 +504,28 @@
           AttributeDefinitions:
             - AttributeName: movieId
               AttributeType: S
-            - AttributeName: genre
-              AttributeType: S
-            - AttributeName: releaseYear
-              AttributeType: S  # Changed from N to S - Numbers must be passed as strings in Default values
             - AttributeName: title
               AttributeType: S
+            - AttributeName: genreId
+              AttributeType: S
+            - AttributeName: releaseYear
+              AttributeType: N
           KeySchema:
             - AttributeName: movieId
               KeyType: HASH
           GlobalSecondaryIndexes:
-            - IndexName: GenreIndex
-              KeySchema:
-                - AttributeName: genre
-                  KeyType: HASH
-                - AttributeName: releaseYear
-                  KeyType: RANGE
-              Projection:
-                ProjectionType: ALL
             - IndexName: TitleIndex
               KeySchema:
                 - AttributeName: title
                   KeyType: HASH
+              Projection:
+                ProjectionType: ALL
+            - IndexName: GenreIndex
+              KeySchema:
+                - AttributeName: genreId
+                  KeyType: HASH
+                - AttributeName: releaseYear
+                  KeyType: RANGE
               Projection:
                 ProjectionType: ALL
           PointInTimeRecoverySpecification:
@@ -708,6 +719,248 @@
       # TABLE 12: AccountsTable - Now managed by infrastructure stack
       # This table has been moved to the infrastructure stack since it's used by the Cognito triggers
 
+      # TABLE: ProfileSettingsLevel1 - Deep worldview settings
+      ProfileSettingsLevel1Table:
+        Type: AWS::DynamoDB::Table
+        DeletionPolicy: Retain
+        Properties:
+          TableName: !Sub "myai4-profile-settings-l1-${AWS::StackName}"
+          BillingMode: PAY_PER_REQUEST
+          AttributeDefinitions:
+            - AttributeName: profileId
+              AttributeType: S
+            - AttributeName: createdAt
+              AttributeType: S
+          KeySchema:
+            - AttributeName: profileId
+              KeyType: HASH
+          GlobalSecondaryIndexes:
+            - IndexName: ProfileCreatedIndex
+              KeySchema:
+                - AttributeName: createdAt
+                  KeyType: HASH
+              Projection:
+                ProjectionType: ALL
+          PointInTimeRecoverySpecification:
+            PointInTimeRecoveryEnabled: true
+          SSESpecification:
+            SSEEnabled: true
+          Tags:
+            - Key: Environment
+              Value: !Ref Environment
+            - Key: Service
+              Value: MyAI4-Stream
+            - Key: DataType
+              Value: ProfileSettingsL1
+
+      # TABLE: ProfileSettingsLevel2 - Objective filters
+      ProfileSettingsLevel2Table:
+        Type: AWS::DynamoDB::Table
+        DeletionPolicy: Retain
+        Properties:
+          TableName: !Sub "myai4-profile-settings-l2-${AWS::StackName}"
+          BillingMode: PAY_PER_REQUEST
+          AttributeDefinitions:
+            - AttributeName: profileId
+              AttributeType: S
+          KeySchema:
+            - AttributeName: profileId
+              KeyType: HASH
+          PointInTimeRecoverySpecification:
+            PointInTimeRecoveryEnabled: true
+          SSESpecification:
+            SSEEnabled: true
+          Tags:
+            - Key: Environment
+              Value: !Ref Environment
+            - Key: Service
+              Value: MyAI4-Stream
+            - Key: DataType
+              Value: ProfileSettingsL2
+
+      # TABLE: ProfileSettingsLevel3 - Composite preferences
+      ProfileSettingsLevel3Table:
+        Type: AWS::DynamoDB::Table
+        DeletionPolicy: Retain
+        Properties:
+          TableName: !Sub "myai4-profile-settings-l3-${AWS::StackName}"
+          BillingMode: PAY_PER_REQUEST
+          AttributeDefinitions:
+            - AttributeName: profileId
+              AttributeType: S
+            - AttributeName: objectType
+              AttributeType: S
+            - AttributeName: weight
+              AttributeType: N
+          KeySchema:
+            - AttributeName: profileId
+              KeyType: HASH
+          GlobalSecondaryIndexes:
+            - IndexName: ObjectTypeIndex
+              KeySchema:
+                - AttributeName: objectType
+                  KeyType: HASH
+                - AttributeName: weight
+                  KeyType: RANGE
+              Projection:
+                ProjectionType: ALL
+          PointInTimeRecoverySpecification:
+            PointInTimeRecoveryEnabled: true
+          SSESpecification:
+            SSEEnabled: true
+          Tags:
+            - Key: Environment
+              Value: !Ref Environment
+            - Key: Service
+              Value: MyAI4-Stream
+            - Key: DataType
+              Value: ProfileSettingsL3
+
+      # Controlled Metadata Tables
+      GenreTable:
+        Type: AWS::DynamoDB::Table
+        DeletionPolicy: Retain
+        Properties:
+          TableName: !Sub "myai4-genre-${AWS::StackName}"
+          BillingMode: PAY_PER_REQUEST
+          AttributeDefinitions:
+            - AttributeName: genreId
+              AttributeType: S
+          KeySchema:
+            - AttributeName: genreId
+              KeyType: HASH
+          PointInTimeRecoverySpecification:
+            PointInTimeRecoveryEnabled: true
+          SSESpecification:
+            SSEEnabled: true
+          Tags:
+            - Key: Environment
+              Value: !Ref Environment
+            - Key: Service
+              Value: MyAI4-Stream
+            - Key: DataType
+              Value: Genre
+
+      ThemeTable:
+        Type: AWS::DynamoDB::Table
+        DeletionPolicy: Retain
+        Properties:
+          TableName: !Sub "myai4-theme-${AWS::StackName}"
+          BillingMode: PAY_PER_REQUEST
+          AttributeDefinitions:
+            - AttributeName: themeId
+              AttributeType: S
+          KeySchema:
+            - AttributeName: themeId
+              KeyType: HASH
+          PointInTimeRecoverySpecification:
+            PointInTimeRecoveryEnabled: true
+          SSESpecification:
+            SSEEnabled: true
+          Tags:
+            - Key: Environment
+              Value: !Ref Environment
+            - Key: Service
+              Value: MyAI4-Stream
+            - Key: DataType
+              Value: Theme
+
+      ActorTable:
+        Type: AWS::DynamoDB::Table
+        DeletionPolicy: Retain
+        Properties:
+          TableName: !Sub "myai4-actor-${AWS::StackName}"
+          BillingMode: PAY_PER_REQUEST
+          AttributeDefinitions:
+            - AttributeName: actorId
+              AttributeType: S
+          KeySchema:
+            - AttributeName: actorId
+              KeyType: HASH
+          PointInTimeRecoverySpecification:
+            PointInTimeRecoveryEnabled: true
+          SSESpecification:
+            SSEEnabled: true
+          Tags:
+            - Key: Environment
+              Value: !Ref Environment
+            - Key: Service
+              Value: MyAI4-Stream
+            - Key: DataType
+              Value: Actor
+
+      DirectorTable:
+        Type: AWS::DynamoDB::Table
+        DeletionPolicy: Retain
+        Properties:
+          TableName: !Sub "myai4-director-${AWS::StackName}"
+          BillingMode: PAY_PER_REQUEST
+          AttributeDefinitions:
+            - AttributeName: directorId
+              AttributeType: S
+          KeySchema:
+            - AttributeName: directorId
+              KeyType: HASH
+          PointInTimeRecoverySpecification:
+            PointInTimeRecoveryEnabled: true
+          SSESpecification:
+            SSEEnabled: true
+          Tags:
+            - Key: Environment
+              Value: !Ref Environment
+            - Key: Service
+              Value: MyAI4-Stream
+            - Key: DataType
+              Value: Director
+
+      FranchiseTable:
+        Type: AWS::DynamoDB::Table
+        DeletionPolicy: Retain
+        Properties:
+          TableName: !Sub "myai4-franchise-${AWS::StackName}"
+          BillingMode: PAY_PER_REQUEST
+          AttributeDefinitions:
+            - AttributeName: franchiseId
+              AttributeType: S
+          KeySchema:
+            - AttributeName: franchiseId
+              KeyType: HASH
+          PointInTimeRecoverySpecification:
+            PointInTimeRecoveryEnabled: true
+          SSESpecification:
+            SSEEnabled: true
+          Tags:
+            - Key: Environment
+              Value: !Ref Environment
+            - Key: Service
+              Value: MyAI4-Stream
+            - Key: DataType
+              Value: Franchise
+
+      StudioTable:
+        Type: AWS::DynamoDB::Table
+        DeletionPolicy: Retain
+        Properties:
+          TableName: !Sub "myai4-studio-${AWS::StackName}"
+          BillingMode: PAY_PER_REQUEST
+          AttributeDefinitions:
+            - AttributeName: studioId
+              AttributeType: S
+          KeySchema:
+            - AttributeName: studioId
+              KeyType: HASH
+          PointInTimeRecoverySpecification:
+            PointInTimeRecoveryEnabled: true
+          SSESpecification:
+            SSEEnabled: true
+          Tags:
+            - Key: Environment
+              Value: !Ref Environment
+            - Key: Service
+              Value: MyAI4-Stream
+            - Key: DataType
+              Value: Studio
+              
     ####################################
     # Outputs
     ####################################
@@ -807,3 +1060,58 @@
         Export:
           Name: !Sub "${AWS::StackName}-WatchHistoryApiUrl"
       # Removed AccountsTableName output - should be imported directly from infrastructure stack
+
+      # New table outputs
+      ProfileSettingsL1TableName:
+        Description: Name of the Profile Settings Level 1 DynamoDB table
+        Value: !Ref ProfileSettingsLevel1Table
+        Export:
+          Name: !Sub "${AWS::StackName}-ProfileSettingsL1Table"
+          
+      ProfileSettingsL2TableName:
+        Description: Name of the Profile Settings Level 2 DynamoDB table
+        Value: !Ref ProfileSettingsLevel2Table
+        Export:
+          Name: !Sub "${AWS::StackName}-ProfileSettingsL2Table"
+          
+      ProfileSettingsL3TableName:
+        Description: Name of the Profile Settings Level 3 DynamoDB table
+        Value: !Ref ProfileSettingsLevel3Table
+        Export:
+          Name: !Sub "${AWS::StackName}-ProfileSettingsL3Table"
+          
+      GenreTableName:
+        Description: Name of the Genre DynamoDB table
+        Value: !Ref GenreTable
+        Export:
+          Name: !Sub "${AWS::StackName}-GenreTable"
+          
+      ThemeTableName:
+        Description: Name of the Theme DynamoDB table
+        Value: !Ref ThemeTable
+        Export:
+          Name: !Sub "${AWS::StackName}-ThemeTable"
+          
+      ActorTableName:
+        Description: Name of the Actor DynamoDB table
+        Value: !Ref ActorTable
+        Export:
+          Name: !Sub "${AWS::StackName}-ActorTable"
+          
+      DirectorTableName:
+        Description: Name of the Director DynamoDB table
+        Value: !Ref DirectorTable
+        Export:
+          Name: !Sub "${AWS::StackName}-DirectorTable"
+          
+      FranchiseTableName:
+        Description: Name of the Franchise DynamoDB table
+        Value: !Ref FranchiseTable
+        Export:
+          Name: !Sub "${AWS::StackName}-FranchiseTable"
+          
+      StudioTableName:
+        Description: Name of the Studio DynamoDB table
+        Value: !Ref StudioTable
+        Export:
+          Name: !Sub "${AWS::StackName}-StudioTable"

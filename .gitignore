@@ -82,3 +82,6 @@ temp_context_files/
 
 #github copilot instructions
 .github/
+
+# Ignore ADO downloads
+work_items/
